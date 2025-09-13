@@ -101,7 +101,7 @@ members:
 
 ## Former master students
 
-- 2021.9 - 2024.6: HongJie Fang (Control Engineer, Shenzhen Gudsen Technology, China)
+- 2021.9 - 2024.6: HongJie Fang (Control Engineer, Shenzhen Gudsen Technology, China) homepage: [jasperfons.cn](https://jasperfons.cn/)
 - 2021.9 - 2024.6: ZhiMing Yang (Ph.D. student, SYSU)
 - 2020.9 - 2022.6: Xin Deng (Product Manager, CaiNiao Network Technology, HangZhou, China)
 - 2019.9 - 2022.6: JinZe Wu (Ph.D. student, Southern University of Science and Technology, ShenZhen, China & Politecnico di Torino, Turin, Italy)
