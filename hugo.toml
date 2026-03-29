@@ -10,7 +10,7 @@ author_bio = ""
 since = "2018"
 icp = ""
 avatar = "/images/张凡.jpg"
-favicon = "/images/favicon-32x32.ico"  # Please use .ico format
+# favicon = "/images/favicon-32x32.ico"  # Please use .ico format
 
 [params.menu]
 [params.menu.Home]
