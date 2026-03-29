@@ -10,7 +10,7 @@ author_bio = ""
 since = "2018"
 icp = ""
 avatar = "/images/张凡.jpg"
-# favicon = "/images/favicon-32x32.ico"  # Please use .ico format
+favicon = "/images/network32x32.ico"  # Please use .ico format
 
 [params.menu]
 [params.menu.Home]
@@ -26,6 +26,11 @@ avatar = "/images/张凡.jpg"
 [params.menu.Publications]
     name = "Publications"
     url = "/publication/"
+    weight = 3
+
+[params.menu.Achives]
+    name = "Achives"
+    url = "/archives/"
     weight = 3
 
 [params.menu.Members]
