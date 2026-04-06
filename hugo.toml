@@ -1,6 +1,6 @@
 baseURL = 'https://sysusz422.github.io/'
 languageCode = 'en-us'
-title = 'Fan Zhang @ SYSU'
+title = '422 @ SYSUsz'
 theme= "hugo-book"
 
 # (Optional) Set Google Analytics if you use it to track your website.

@@ -1,5 +1,52 @@
-{{- $src := .Get 0 -}}
+{{/* 获取参数 */}}
+{{ $src := .Get "src" | default (.Get 0) }}
+{{ $poster := .Get "poster" }}
+{{ $class := .Get "class" | default "video-shortcode" }}
+{{ $preload := .Get "preload" | default "metadata" }}
+{{ $controls := .Get "controls" | default true }}
+{{ $autoplay := .Get "autoplay" | default false }}
+{{ $loop := .Get "loop" | default false }}
+{{ $muted := .Get "muted" | default false }}
 
-<div class="video-wrapper">
-  <video controls src="{{ $src }}" width="100%" height="50%">
-</div>
+{{/* 处理路径：相对路径用 Page Resources，绝对路径直接用 */}}
+{{ $videoURL := "" }}
+{{ $posterURL := "" }}
+
+{{/* 视频路径 */}}
+{{ if hasPrefix $src "/" }}
+  {{ $videoURL = $src | relURL }}
+{{ else }}
+  {{ $video := .Page.Resources.GetMatch $src }}
+  {{ if $video }}
+    {{ $videoURL = $video.RelPermalink }}
+  {{ else }}
+    {{ errorf "Video not found: %s (page: %s)" $src .Page.Path }}
+  {{ end }}
+{{ end }}
+
+{{/* 封面路径（同逻辑） */}}
+{{ with $poster }}
+  {{ if hasPrefix . "/" }}
+    {{ $posterURL = . | relURL }}
+  {{ else }}
+    {{ $img := $.Page.Resources.GetMatch . }}
+    {{ if $img }}
+      {{ $posterURL = $img.RelPermalink }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+
+{{/* 渲染 <video> 标签 */}}
+<video
+  class="{{ $class }}"
+  src="{{ $videoURL }}"
+  {{ if $posterURL }}poster="{{ $posterURL }}"{{ end }}
+  preload="{{ $preload }}"
+  {{ if $controls }}controls{{ end }}
+  {{ if $autoplay }}autoplay{{ end }}
+  {{ if $loop }}loop{{ end }}
+  {{ if $muted }}muted{{ end }}
+  width="100%"
+>
+  您的浏览器不支持视频播放。
+</video>
