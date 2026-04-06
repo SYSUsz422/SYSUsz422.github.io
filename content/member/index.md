@@ -75,7 +75,7 @@ members:
     email: "lmlfight@163.com"
     research: "prescribed performance control; RBFNN"
     hobby: "badminton"
-    
+weight: 1
 ---
 
 ## Current Ph.D. students

@@ -8,6 +8,7 @@ info:
     gaode: "https://surl.amap.com/HCHxUAtyeNJ"
     baidu: "https://j.map.baidu.com/6e/pck"
     google: "https://maps.app.goo.gl/t1iFkk9MFk5PA37s9"
+weight: 1
 ---
 
 # Workshop on Distributed Autonomy and Intelligence
