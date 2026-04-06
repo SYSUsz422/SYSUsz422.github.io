@@ -10,6 +10,8 @@ info:
     google: "https://maps.app.goo.gl/t1iFkk9MFk5PA37s9"
 ---
 
+# Workshop on Distributed Autonomy and Intelligence
+
 {{< meeting >}}
 
 ## Hyo-Sung Ahn | Matrix-Weighted Graphs: Motivations and Theory 

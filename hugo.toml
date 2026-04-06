@@ -1,85 +1,82 @@
 baseURL = 'https://sysusz422.github.io/'
 languageCode = 'en-us'
 title = 'Fan Zhang @ SYSU'
-theme= "hugo-academia"
-canonifyURLs = true # if use absolute path.
+theme= "hugo-book"
+
+# (Optional) Set Google Analytics if you use it to track your website.
+# Always put it on the top of the configuration file, otherwise it won't work
+googleAnalytics = "UA-XXXXXXXXX-X"
+
+# (Optional) If you provide a Disqus shortname, comments will be enabled on
+# all pages.
+disqusShortname = "my-site"
+
+# (Optional) Set this to true if you use capital letters in file names
+disablePathToLower = true
+
+# (Optional) Set this to true to enable 'Last Modified by' date and git author
+#  information on 'doc' type pages.
+enableGitInfo = true
+
+# (Optional) Theme is intended for documentation use, therefore it doesn't render taxonomy.
+# You can remove related files with config below
+disableKinds = ['taxonomy', 'taxonomyTerm']
 
 [params]
-author = "Fan Zhang"
-author_bio = ""
-since = "2018"
-icp = ""
-avatar = "/images/张凡.jpg"
-favicon = "/images/network32x32.ico"  # Please use .ico format
+  # (Optional, default light) Sets color theme: light, dark or auto.
+  # Theme 'auto' switches between dark and light modes based on browser/os preferences. With plugins/themes added there are more themes.
+  BookTheme = 'light'
 
-[params.menu]
-[params.menu.Home]
-    name = "Home"
-    url = "/"
-    weight = 1
+  # (Optional, default true) Controls table of contents visibility on right side of pages.
+  # Start and end levels can be controlled with markup.tableOfContents setting.
+  # You can also specify this parameter per page in front matter.
+  BookToC = true
 
-[params.menu.About]
-    name = "About"
-    url = "/about/"
-    weight = 2
+  # (Optional, default none) Set the path to a logo for the book. If the logo is
+  # /static/logo.png then the path would be 'logo.png'
+  BookLogo = "/images/network32x32.ico"
 
-[params.menu.Publications]
-    name = "Publications"
-    url = "/publication/"
-    weight = 3
+  # (Optional, default 'favicon.png') Set the path to a favicon for the site.
+  # If the favicon is in /static/custom.svg, then the path would be 'custom.svg'.
+  BookFavicon = 'favicon.png'
 
-[params.menu.Achives]
-    name = "Achives"
-    url = "/archives/"
-    weight = 3
+  # (Optional, default docs) Specify section of content to render as menu
+  # You can also set value to "*" to render all sections to menu
+  BookSection = '*'
 
-[params.menu.Members]
-    name = "Members"
-    url = "/member/"
-    weight = 4
+  # (Optional, default none) Set template for commit link for the page. Requires enableGitInfo.
+  # When set enabled 'Last Modified' and a link to the commit in the footer of the page.
+  # Param is executed as template using .Site, .Page and .GitInfo as context.
+  BookLastChangeLink = 'https://github.com/alex-shpak/hugo-book/commit/{{ .GitInfo.Hash }}'
 
-[params.loading_bg]
-  flink = "/images/profile.png"
+  # (Optional, default none) Set template for edit page link.
+  # When set enabled 'Edit this page' link in the footer of the page.
+  # Param is executed as template using .Site, .Page and .Path as context.
+  BookEditLink = 'https://github.com/alex-shpak/hugo-book/edit/main/exampleSite/{{ .Path }}'
 
-  [params.social]
-  enable = true
+  # (Optional, default 'January 2, 2006') Configure the date format used on the pages
+  # - In git information
+  # - In blog posts
+  # https://gohugo.io/functions/time/format/
+  BookDateFormat = 'January 2, 2006'
 
-[params.social.links.SYSU]
-icon = "fas fa-university"
-url = "https://saa.sysu.edu.cn/teacher/231"
-weight = 1
+  # (Optional, default true) Enables search function with flexsearch,
+  # Index is built on fly, therefore it might slowdown your website.
+  # Configuration for indexing can be adjusted in i18n folder per language.
+  BookSearch = true
 
+  # (Optional, default true) Enables comments template on pages
+  # By default partials/docs/comments.html includes Disqus template
+  # See https://gohugo.io/content-management/comments/#configure-disqus
+  # Can be overwritten by same param in page frontmatter
+  BookComments = true
 
-[params.social.links.Envelope]
-icon = "fas fa-envelope"
-url = "mailto:drfzh@outlook.com"
-weight = 2
+  # /!\ This is an experimental feature, might be removed or changed at any time
+  # (Optional, experimental, default false) Enables portable links and link checks in markdown pages.
+  # Portable links meant to work with text editors and let you write markdown without {{< relref >}} shortcode
+  # Theme will print warning if page referenced in markdown does not exists.
+  BookPortableLinks = true
 
-
-  [params.e_social]
-  enable = true
-
-[params.e_social.links."email"]
-name = "email"
-url = "mailto:drfzh@outlook.com"
-icon = "fas fa-envelope"
-weight = 1
-
-# CDN
-# 根据需要自行添加js/css
-# 自定义css可以直接写在user.styl中
-[params.CDN_USE]
-css = [
-    "/css/style.css",
-    "https://cdn.bootcdn.net/ajax/libs/font-awesome/6.7.2/css/all.min.css"  # fontawesome 5
-]
-js = [
-    "https://cdn.bootcdn.net/ajax/libs/jquery/3.7.1/jquery.min.js",  # /js/third-party/jquery.min.js
-    "https://cdn.bootcdn.net/ajax/libs/jquery.pjax/2.0.1/jquery.pjax.min.js",
-    "/js/main.js"
-]
-
-
-[caches]
-  [caches.images]
-    dir = ':cacheDir/images'
+  # /!\ This is an experimental feature, might be removed or changed at any time
+  # (Optional, experimental, default false) Enables service worker that caches visited pages and resources for offline use.
+  BookServiceWorker = true

@@ -6,6 +6,6 @@ aliases:
 - /f/a/
 ---
 
-![](/2026/a/trajectory_smc_rl.gif)
+![](2026/a/trajectory_smc_rl.gif)
 
-{{<video "/2026/a/stk.mp4">}}
+{{<video "2026/a/stk.mp4">}}
