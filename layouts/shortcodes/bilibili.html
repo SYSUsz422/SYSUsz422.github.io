@@ -1,0 +1,25 @@
+{{- $bvid := .Get "bvid" | default (.Get 0) -}}
+{{- $cid := .Get "cid" | default 0 -}}
+{{- $page := .Get "page" | default 1 -}}
+{{- $width := .Get "width" | default "100%" -}}
+{{- $height := .Get "height" | default "600px" -}}
+
+{{- if not $bvid -}}
+  <p style="color:red;">请传入 B 站视频 bvid</p>
+  {{- return -}}
+{{- end -}}
+
+<div style="width:{{ $width }};margin:1rem 0;">
+  <iframe
+    src="//player.bilibili.com/player.html?bvid={{ $bvid }}&cid={{ $cid }}&page={{ $page }}"
+    width="{{ $width }}"
+    height="{{ $height }}"
+    scrolling="no"
+    border="0"
+    frameborder="no"
+    framespacing="0"
+    allowfullscreen="true"
+    style="border-radius:6px;"
+  >
+  </iframe>
+</div>

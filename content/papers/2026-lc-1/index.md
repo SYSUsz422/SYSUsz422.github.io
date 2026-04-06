@@ -3,8 +3,10 @@
 title: "working"
 side_card_disable: true
 aliases:
-- /f/c/
+- /f/2/
 ---
+
+shortlink: <https://sysusz422.github.io/f/2/>
 
 The dynamic figures are presented below in `gif` and `webp` format.
 
