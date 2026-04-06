@@ -7,4 +7,4 @@ aliases:
 
 ![](res/trajectory_smc_rl.gif)
 
-<!-- {{<video src="./res/stk.mp4">}} -->
+{{<video src="res/stk.mp4">}}
