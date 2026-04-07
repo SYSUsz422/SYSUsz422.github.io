@@ -3,10 +3,6 @@ languageCode = 'en-us'
 title = '422 @ SYSUsz'
 theme= "hugo-book"
 
-# (Optional) Set Google Analytics if you use it to track your website.
-# Always put it on the top of the configuration file, otherwise it won't work
-googleAnalytics = "UA-XXXXXXXXX-X"
-
 
 
 # (Optional) Set this to true if you use capital letters in file names
@@ -18,7 +14,7 @@ enableGitInfo = true
 
 # (Optional) Theme is intended for documentation use, therefore it doesn't render taxonomy.
 # You can remove related files with config below
-disableKinds = ['taxonomy', 'taxonomyTerm']
+disableKinds = ['taxonomy']
 
 [params]
   # (Optional, default light) Sets color theme: light, dark or auto.
@@ -45,12 +41,12 @@ disableKinds = ['taxonomy', 'taxonomyTerm']
   # (Optional, default none) Set template for commit link for the page. Requires enableGitInfo.
   # When set enabled 'Last Modified' and a link to the commit in the footer of the page.
   # Param is executed as template using .Site, .Page and .GitInfo as context.
-  BookLastChangeLink = 'https://github.com/alex-shpak/hugo-book/commit/{{ .GitInfo.Hash }}'
+  BookLastChangeLink = 'https://github.com/SYSUsz422/SYSUsz422.github.io/commit/{{ .GitInfo.Hash }}'
 
   # (Optional, default none) Set template for edit page link.
   # When set enabled 'Edit this page' link in the footer of the page.
   # Param is executed as template using .Site, .Page and .Path as context.
-  BookEditLink = 'https://github.com/alex-shpak/hugo-book/edit/main/exampleSite/{{ .Path }}'
+  BookEditLink = 'https://github.com/SYSUsz422/SYSUsz422.github.io/edit/main/exampleSite/{{ .Path }}'
 
   # (Optional, default 'January 2, 2006') Configure the date format used on the pages
   # - In git information
