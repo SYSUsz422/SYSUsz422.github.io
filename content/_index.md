@@ -4,6 +4,7 @@ homepage: true
 weight: 1
 ---
 
+Welcome to our homepage.
 The latest informaton about our research is on <https://drfzh.github.io/>.
 
 ## News
