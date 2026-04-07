@@ -11,6 +11,8 @@ info:
 weight: 1
 ---
 
+[![Guangming](images/guangming.webp)](./events/workshop20250521/)
+
 # Workshop on Distributed Autonomy and Intelligence
 
 {{< meeting >}}
