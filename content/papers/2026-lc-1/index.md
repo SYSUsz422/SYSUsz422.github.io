@@ -1,6 +1,6 @@
 
 ---
-title: "working"
+title: "Armorphous fencing with Sphero Bolts"
 side_card_disable: true
 aliases:
 - /f/2/
@@ -25,6 +25,6 @@ The dynamic figures are presented below in `gif` and `webp` format.
 
 <!-- <video controls src="/2026/VOsnap.mp4"> -->
 
-{{<video "images/VID_20260406_221014_720p.mp4">}}
+{{<video "images/VID_20260406_221014_720p_muted.mp4">}}
 
 ---
