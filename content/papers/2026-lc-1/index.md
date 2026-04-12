@@ -23,7 +23,7 @@ The dynamic figures are presented below in `gif` and `webp` format.
 
 ![](./images/2026a2.webp)
 
-<!-- <video controls src="/2026/VOsnap.mp4"> -->
+### Fig. 13
 
 {{<video "images/VID_20260406_221014_720p_muted.mp4">}}
 

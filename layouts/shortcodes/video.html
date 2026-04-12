@@ -1,18 +1,16 @@
-{{/* 获取参数 */}}
+{{/* Get Parameters */}}
 {{ $src := .Get "src" | default (.Get 0) }}
 {{ $poster := .Get "poster" }}
 {{ $class := .Get "class" | default "video-shortcode" }}
-{{ $preload := .Get "preload" | default "metadata" }}
+{{ $preload := .Get "preload" | default "auto" }}
 {{ $controls := .Get "controls" | default true }}
 {{ $autoplay := .Get "autoplay" | default false }}
 {{ $loop := .Get "loop" | default false }}
 {{ $muted := .Get "muted" | default false }}
+{{ $playsinline := .Get "playsinline" | default true }}
 
-{{/* 处理路径：相对路径用 Page Resources，绝对路径直接用 */}}
+{{/* Handle video URL */}}
 {{ $videoURL := "" }}
-{{ $posterURL := "" }}
-
-{{/* 视频路径 */}}
 {{ if hasPrefix $src "/" }}
   {{ $videoURL = $src | relURL }}
 {{ else }}
@@ -20,11 +18,12 @@
   {{ if $video }}
     {{ $videoURL = $video.RelPermalink }}
   {{ else }}
-    {{ errorf "Video not found: %s (page: %s)" $src .Page.Path }}
+    {{ errorf "Video resource not found: %s (page: %s)" $src .Page.Path }}
   {{ end }}
 {{ end }}
 
-{{/* 封面路径（同逻辑） */}}
+{{/* Handle poster URL */}}
+{{ $posterURL := "" }}
 {{ with $poster }}
   {{ if hasPrefix . "/" }}
     {{ $posterURL = . | relURL }}
@@ -36,17 +35,43 @@
   {{ end }}
 {{ end }}
 
-{{/* 渲染 <video> 标签 */}}
-<video
-  class="{{ $class }}"
-  src="{{ $videoURL }}"
-  {{ if $posterURL }}poster="{{ $posterURL }}"{{ end }}
-  preload="{{ $preload }}"
-  {{ if $controls }}controls{{ end }}
-  {{ if $autoplay }}autoplay{{ end }}
-  {{ if $loop }}loop{{ end }}
-  {{ if $muted }}muted{{ end }}
-  width="100%"
->
-  您的浏览器不支持视频播放。
-</video>
+{{/* Generate unique ID for multiple videos */}}
+{{ $uid := delimit (shuffle (split "abcdefghijklmnopqrstuvwxyz0123456789" "")) "" | truncate 8 "" }}
+{{ $errorId := print "video-error-" $uid }}
+
+<div class="video-wrapper">
+  <video
+    class="{{ $class }}"
+    src="{{ $videoURL }}"
+    {{ if $posterURL }}poster="{{ $posterURL }}"{{ end }}
+    preload="{{ $preload }}"
+    {{ if $controls }}controls{{ end }}
+    {{ if $autoplay }}autoplay{{ end }}
+    {{ if $loop }}loop{{ end }}
+    {{ if $muted }}muted{{ end }}
+    {{ if $playsinline }}playsinline{{ end }}
+    width="100%"
+    style="max-width:100%;"
+  >
+    Your browser does not support HTML5 video playback.
+  </video>
+
+  <!-- Error message (hidden by default) -->
+  <div id="{{ $errorId }}" class="video-error" style="display:none; padding:24px; text-align:center; background:#f8f9fa; border:1px solid #e0e0e0; border-radius:8px; margin:12px 0;">
+    <p style="color:#d32f2f; font-size:16px; margin:0 0 10px 0;">⚠️ Video failed to load</p>
+    <p style="font-size:14px; color:#555; margin:0 0 16px 0;">The video could not be loaded due to network issues or file error.</p>
+    <button onclick="window.location.reload()" style="padding:10px 20px; background:#2196F3; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px;">Refresh Page</button>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const video = document.querySelector('#{{ $errorId }}').previousElementSibling;
+    const errorBox = document.getElementById('{{ $errorId }}');
+    
+    video.addEventListener('error', function() {
+      video.style.display = 'none';
+      errorBox.style.display = 'block';
+    });
+  });
+</script>
