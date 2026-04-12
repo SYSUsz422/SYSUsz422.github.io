@@ -25,6 +25,6 @@ The dynamic figures are presented below in `gif` and `webp` format.
 
 ### Fig. 13
 
-{{<video "images/VID_20260406_221014_720p_muted.mp4">}}
+{{<video "images/VID_20260406_221014_edited.mp4">}}
 
 ---
