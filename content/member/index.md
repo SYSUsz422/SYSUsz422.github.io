@@ -1,6 +1,10 @@
 ---
 title: "Group Members"
 members:
+  - name: "Fan Zhang"
+    img: "images/leader.jpg"
+    email: "zhangfan6@mail.sysu.edu.cn"
+    website: "https://drfzh.github.io/"
   # Phd students
   - name: "Cheng Liu"
     img: "images/Cheng_Liu.jpg"
@@ -20,11 +24,11 @@ members:
     status: "Ph.D. student"
     research: "robust control; neural networks"
     hobby: "basketball"
-  # - name: "DanYu Li"
-  #   img: "images/DanYu_Li.jpg"
-  #   imglink: "images/big/DanYu_Li.jpg"
-  #   email: "2140284032@qq.com"
-  #   research: "navigation and control"
+  - name: "DanYu Li"
+    img: "images/DanYu_Li.jpg"
+    imglink: "images/big/DanYu_Li.jpg"
+    email: "2140284032@qq.com"
+    research: "navigation and control"
   # Master students 2025
   - name: "YuXin Zhang"
     img: "images/YuXin_Zhang.jpg"
@@ -78,12 +82,20 @@ members:
 weight: 1
 ---
 
+# SYSUsz422 Research Group
+
+We are a group leaded by Prof. [Fan Zhang](https://drfzh.github.io/).
+Our research interests include control theory, machine learning, and robotics.
+See <https://drfzh.github.io/> for more information about us.
+
+<!-- {{< member "Fan Zhang" >}} -->
+
 ## Current Ph.D. students
 
 - 2025.9 - : Cheng Liu, YunWei Guo
 - 2024.9 - : ZhiMing Yang, DanYu Li
 
-{{< member "ZhiMing Yang"  "DanYu Li" "Cheng Liu"   "YunWei Guo"  >}}
+{{< member "ZhiMing Yang"  "Cheng Liu"   "YunWei Guo"  >}}
 
 ## Current master students
 
@@ -92,14 +104,14 @@ weight: 1
 - 2023.9 - : YuAng Ke, YaChuan Li
 - 2022.9 - : Cheng Liu, JiaBo Liu, Hao Xu
 
-{{< member "ZengNing Lai" "YuXin Zhang" "ShaoFeng Xiong" "PeiPei Jin" "Hao Chen" "QinTao Lai"  "RuTao Zhong" "YuAng Ke" "YaChuan Li" "Hao Xu"   "JiaBo Liu" >}}
+{{< member "ZengNing Lai" "YuXin Zhang" "ShaoFeng Xiong" "PeiPei Jin" "Hao Chen" "QinTao Lai"  "RuTao Zhong" "YuAng Ke" "YaChuan Li" >}}
 
 
-## Current undergratutes
-
-- 2024.9 - : PeiPei Jin, NiCan Liu
 
 ## Former master students
+
+{{< member  "Hao Xu"   "JiaBo Liu" >}}
+
 
 - 2021.9 - 2024.6: HongJie Fang (Control Engineer, Shenzhen Gudsen Technology, China) homepage: [jasperfons.cn](https://jasperfons.cn/)
 - 2021.9 - 2024.6: ZhiMing Yang (Ph.D. student, SYSU)
