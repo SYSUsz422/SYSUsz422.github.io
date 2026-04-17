@@ -23,8 +23,10 @@ The dynamic figures are presented below in `gif` and `webp` format.
 
 ![](./images/2026a2.webp)
 
-### Fig. 13
+### Fig. 13 Cooperative Fencing Control Experiment via Spherical Robots (Sphero BOLT)
 
-{{<video "images/VID_20260406_221014_edited.mp4">}}
+<!-- {{<video "images/VID_20260406_221014_edited.mp4">}} -->
+
+{{<bilibili bvid="BV1vDdqBuESg">}}
 
 ---

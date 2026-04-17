@@ -1,25 +1,14 @@
 {{- $bvid := .Get "bvid" | default (.Get 0) -}}
-{{- $cid := .Get "cid" | default 0 -}}
 {{- $page := .Get "page" | default 1 -}}
-{{- $width := .Get "width" | default "100%" -}}
-{{- $height := .Get "height" | default "600px" -}}
+{{- $danmaku := .Get "danmaku" | default 0 -}}
 
-{{- if not $bvid -}}
-  <p style="color:red;">请传入 B 站视频 bvid</p>
-  {{- return -}}
-{{- end -}}
-
-<div style="width:{{ $width }};margin:1rem 0;">
+<div style="position: relative; width: 100%; height: 0; padding-top: 56.25%; margin: 1.5rem 0;">
   <iframe
-    src="//player.bilibili.com/player.html?bvid={{ $bvid }}&cid={{ $cid }}&page={{ $page }}"
-    width="{{ $width }}"
-    height="{{ $height }}"
+    src="//player.bilibili.com/player.html?bvid={{ $bvid }}&page={{ $page }}&as_wide=1&high_quality=1&danmaku={{ $danmaku }}"
+    style="position: absolute; width: 100%; height: 100%; left: 0; top: 0; border: none;"
     scrolling="no"
-    border="0"
-    frameborder="no"
-    framespacing="0"
-    allowfullscreen="true"
-    style="border-radius:6px;"
-  >
-  </iframe>
+    frameborder="0"
+    allowfullscreen
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  ></iframe>
 </div>
