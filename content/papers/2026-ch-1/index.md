@@ -7,13 +7,10 @@ aliases:
 
 shortlink: <https://sysusz422.github.io/f/1/>
 
-{{< figure 
-    src="res/trajectory_smc_rl.gif" 
-    caption="Supplementary Animation 1. Evolution of the satellite fencing formation trajectories under the proposed two-stage distributed method." 
->}}
+![](res/trajectory_smc_rl.gif)
 
-{{< video src="res/stk.mp4" >}}
+<center><b>Supplementary Animation 1.</b> Evolution of the satellite fencing formation trajectories under the proposed two-stage distributed method.</center>
 
-<p align="center">
-<strong>Supplementary Video 1.</strong> STK visualization of the cooperative satellite fencing formation process, showing the initial approach, formation adjustment, fencing formation establishment, and fencing formation maintenance stages.
-</p>
+{{<video src="res/stk.mp4">}}
+
+<center><b>Supplementary Video 1.</b> STK visualization of the cooperative satellite fencing formation process around the unknown maneuver target.</center>
