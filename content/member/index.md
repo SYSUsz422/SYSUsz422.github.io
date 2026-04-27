@@ -84,8 +84,7 @@ weight: 1
 
 # SYSUsz422 Research Group
 
-We are a group leaded by Prof. [Fan Zhang](https://drfzh.github.io/).
-Our research interests include control theory, machine learning, and robotics.
+We are a group leaded by Dr. [Fan Zhang](https://drfzh.github.io/).
 See <https://drfzh.github.io/> for more information about us.
 
 <!-- {{< member "Fan Zhang" >}} -->
@@ -102,7 +101,7 @@ See <https://drfzh.github.io/> for more information about us.
 - 2025.9 - : ZengNing Lai, YuXin Zhang, ShaoFeng Xiong, PeiPei Jin
 - 2024.9 - : Hao Chen, QinTao Lai, RuTao Zhong
 - 2023.9 - : YuAng Ke, YaChuan Li
-- 2022.9 - : Cheng Liu, JiaBo Liu, Hao Xu
+
 
 {{< member "ZengNing Lai" "YuXin Zhang" "ShaoFeng Xiong" "PeiPei Jin" "Hao Chen" "QinTao Lai"  "RuTao Zhong" "YuAng Ke" "YaChuan Li" >}}
 
@@ -112,9 +111,8 @@ See <https://drfzh.github.io/> for more information about us.
 
 {{< member  "Hao Xu"   "JiaBo Liu" >}}
 
-
-- 2021.9 - 2024.6: HongJie Fang (Control Engineer, Shenzhen Gudsen Technology, China) homepage: [jasperfons.cn](https://jasperfons.cn/)
-- 2021.9 - 2024.6: ZhiMing Yang (Ph.D. student, SYSU)
+- 2022.9 - 2025.6: Cheng Liu, JiaBo Liu, Hao Xu
+- 2021.9 - 2024.6: HongJie Fang (Control Engineer, Shenzhen Gudsen Technology, China) homepage: [jasperfons.cn](https://jasperfons.cn/) ZhiMing Yang (Ph.D. student, SYSU)
 - 2020.9 - 2022.6: Xin Deng (Product Manager, CaiNiao Network Technology, HangZhou, China)
 - 2019.9 - 2022.6: JinZe Wu (Ph.D. student, Southern University of Science and Technology, ShenZhen, China & Politecnico di Torino, Turin, Italy)
 
