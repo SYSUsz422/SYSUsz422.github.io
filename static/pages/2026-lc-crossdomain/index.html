@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ship2 Three.js Scene</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main id="app">
+    <canvas id="scene"></canvas>
+
+    <section class="hud hud-top">
+      <div>
+        <div class="title">Ship2 Fencing Scene</div>
+        <div id="status" class="status">Loading simulation data...</div>
+      </div>
+      <div class="legend" aria-label="vehicle legend">
+        <span><i class="swatch usv"></i>USV</span>
+        <span><i class="swatch uav"></i>UAV</span>
+        <span><i class="swatch uuv"></i>UUV</span>
+        <span><i class="swatch target"></i>Target</span>
+        <span><i class="swatch hull"></i>Hull before 18s</span>
+      </div>
+    </section>
+
+    <section class="hud hud-bottom">
+      <button id="playButton" type="button" title="Play or pause">Play</button>
+      <label class="time-slider" for="timeSlider">
+        <span id="timeLabel">t = 0.0 s</span>
+        <input id="timeSlider" type="range" min="0" max="0" step="1" value="0">
+      </label>
+      <label class="speed-control" for="speedSelect">
+        <span>Speed</span>
+        <select id="speedSelect">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+          <option value="4">4x</option>
+        </select>
+      </label>
+    </section>
+  </main>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/",
+        "lil-gui": "https://unpkg.com/lil-gui@0.19.2/dist/lil-gui.esm.js"
+      }
+    }
+  </script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
