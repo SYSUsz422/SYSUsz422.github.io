@@ -1,0 +1,39 @@
+{{/* Get Parameters */}}
+{{ $src := .Get "src" | default (.Get 0) }}
+{{ $width := .Get "width" | default "100%" }}
+{{ $height := .Get "height" | default "600px" }}
+{{ $class := .Get "class" | default "" }}
+{{ $frameborder := .Get "frameborder" | default "0" }}
+{{ $allowfullscreen := .Get "allowfullscreen" | default true }}
+{{ $title := .Get "title" | default "Embedded content" }}
+{{ $style := .Get "style" | default "border: 1px solid #ddd; border-radius: 8px;" }}
+
+{{/* Validate src parameter */}}
+{{ if not $src }}
+  {{ errorf "iframe shortcode requires a 'src' parameter (page: %s)" .Page.Path }}
+{{ end }}
+
+{{/* Handle URL */}}
+{{ $iframeSrc := "" }}
+{{ if hasPrefix $src "/" }}
+  {{ $iframeSrc = $src | relURL }}
+{{ else if hasPrefix $src "http" }}
+  {{ $iframeSrc = $src }}
+{{ else }}
+  {{ $iframeSrc = $src | relURL }}
+{{ end }}
+
+<div class="iframe-wrapper {{ $class }}" style="margin: 1.5rem 0;">
+  <iframe
+    src="{{ $iframeSrc }}"
+    width="{{ $width }}"
+    height="{{ $height }}"
+    frameborder="{{ $frameborder }}"
+    {{ if $allowfullscreen }}allowfullscreen{{ end }}
+    title="{{ $title }}"
+    loading="lazy"
+    style="{{ $style }} max-width: 100%;"
+  >
+    <p>Your browser does not support iframes. <a href="{{ $iframeSrc }}" target="_blank" rel="noopener noreferrer">Click here to view the content</a>.</p>
+  </iframe>
+</div>
