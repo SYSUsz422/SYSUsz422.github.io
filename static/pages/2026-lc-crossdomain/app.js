@@ -64,11 +64,11 @@ loadScene();
 window.addEventListener('resize', resize);
 playButton.addEventListener('click', () => {
   isPlaying = !isPlaying;
-  playButton.textContent = isPlaying ? 'Pause' : 'Play';
+  playButton.textContent = isPlaying ? '暂停' : '播放';
 });
 timeSlider.addEventListener('input', () => {
   isPlaying = false;
-  playButton.textContent = 'Play';
+  playButton.textContent = '播放';
   setFrame(Number(timeSlider.value));
 });
 
@@ -91,16 +91,16 @@ function initLights() {
 async function loadScene() {
   try {
     sceneData = await fetchJson('./ship2_scene.json');
-    statusEl.textContent = `Loaded ${sceneData.metadata.sampleCount} samples from exported JSON`;
+    statusEl.textContent = `已从导出的 JSON 加载 ${sceneData.metadata.sampleCount} 个样本`;
   } catch (error) {
-    statusEl.textContent = 'Exported JSON not found. Falling back to realtime-2.jsonl.';
+    statusEl.textContent = '未找到导出的 JSON，回退到 realtime-2.jsonl';
     sceneData = await loadJsonlFallback('../out/log/realtime-2.jsonl');
   }
 
   sampleDt = estimateSampleDt(sceneData.time);
   timeSlider.max = String(sceneData.time.length - 1);
   timeSlider.value = '0';
-  playButton.textContent = 'Pause';
+  playButton.textContent = '暂停';
 
   buildWorld(sceneData);
   buildActors(sceneData);
@@ -316,15 +316,17 @@ function buildFormationHull(data) {
 }
 
 function initGui() {
-  gui = new GUI({ title: 'Scene controls' });
+  gui = new GUI({ title: '场景控制' });
   gui.domElement.id = 'sceneGui';
 
-  const hullFolder = gui.addFolder('Convex hull');
-  hullFolder.add(hullSettings, 'visible').name('Show hull').onChange(applyHullSettings);
-  hullFolder.addColor(hullSettings, 'color').name('Color').onChange(applyHullSettings);
-  hullFolder.add(hullSettings, 'opacity', 0, 1, 0.01).name('Face opacity').onChange(applyHullSettings);
-  hullFolder.add(hullSettings, 'wireOpacity', 0, 1, 0.01).name('Wire opacity').onChange(applyHullSettings);
+  const hullFolder = gui.addFolder('凸包');
+  hullFolder.add(hullSettings, 'visible').name('显示凸包').onChange(applyHullSettings);
+  hullFolder.addColor(hullSettings, 'color').name('颜色').onChange(applyHullSettings);
+  hullFolder.add(hullSettings, 'opacity', 0, 1, 0.01).name('面透明度').onChange(applyHullSettings);
+  hullFolder.add(hullSettings, 'wireOpacity', 0, 1, 0.01).name('线框透明度').onChange(applyHullSettings);
   hullFolder.open();
+
+  gui.close();
 
   applyHullSettings();
 }
@@ -347,70 +349,253 @@ function applyHullSettings() {
 function createVehicleMesh(type) {
   const group = new THREE.Group();
   if (type === 'uav') {
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 0.34, 0.24),
-      material(typeColors.uav, 0.52, 0.25),
-    );
+    // 更逼真的四旋翼无人机
+    const bodyMat = material(typeColors.uav, 0.4, 0.3);
+    const darkMat = material(0x1a1a2e, 0.3, 0.1);
+    const armMat = material(0x8a8a9a, 0.35, 0.25);
+
+    // 机身主体 - 流线型
+    const bodyGeom = new THREE.BoxGeometry(1.2, 0.4, 0.18);
+    const body = new THREE.Mesh(bodyGeom, bodyMat);
     body.castShadow = true;
     group.add(body);
 
-    const armMat = material(0xd9e7ef, 0.45, 0.15);
-    const armA = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.06), armMat);
-    const armB = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.4, 0.06), armMat);
-    group.add(armA, armB);
+    // 机身上盖 - 圆润
+    const topCover = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 0.3, 0.08),
+      material(0x3a7bd5, 0.35, 0.3),
+    );
+    topCover.position.set(0, 0, 0.13);
+    group.add(topCover);
 
-    for (const [x, y] of [[1.15, 1.15], [1.15, -1.15], [-1.15, 1.15], [-1.15, -1.15]]) {
-      const rotor = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.32, 0.32, 0.035, 28),
-        material(0x0c1a24, 0.35, 0.05),
+    // 摄像头/传感器
+    const camera = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 16, 16),
+      darkMat,
+    );
+    camera.position.set(0.5, 0, -0.1);
+    camera.castShadow = true;
+    group.add(camera);
+
+    // 四个机臂
+    const armPositions = [
+      { x: 0.7, y: 0.7, angle: Math.PI / 4 },
+      { x: 0.7, y: -0.7, angle: -Math.PI / 4 },
+      { x: -0.7, y: 0.7, angle: 3 * Math.PI / 4 },
+      { x: -0.7, y: -0.7, angle: -3 * Math.PI / 4 },
+    ];
+
+    for (const pos of armPositions) {
+      // 机臂
+      const arm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, 0.06, 0.05),
+        armMat,
       );
-      rotor.position.set(x, y, 0.08);
-      rotor.rotation.x = Math.PI / 2;
-      rotor.castShadow = true;
-      group.add(rotor);
+      arm.position.set(pos.x / 2, pos.y / 2, 0.05);
+      arm.rotation.z = pos.angle;
+      arm.castShadow = true;
+      group.add(arm);
+
+      // 电机
+      const motor = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.06, 0.1, 12),
+        darkMat,
+      );
+      motor.position.set(pos.x, pos.y, 0.08);
+      group.add(motor);
+
+      // 螺旋桨 - 更逼真
+      const bladeGeom = new THREE.BoxGeometry(0.5, 0.06, 0.01);
+      for (let i = 0; i < 2; i++) {
+        const blade = new THREE.Mesh(bladeGeom, material(0x4a4a5a, 0.4, 0.15));
+        blade.position.set(pos.x, pos.y, 0.14);
+        blade.rotation.z = pos.angle + i * Math.PI;
+        blade.castShadow = true;
+        group.add(blade);
+      }
+
+      // 起落架
+      if (pos.x > 0 && pos.y > 0) {
+        const legGeom = new THREE.CylinderGeometry(0.015, 0.015, 0.2, 8);
+        const leg1 = new THREE.Mesh(legGeom, armMat);
+        leg1.position.set(pos.x - 0.15, pos.y - 0.15, -0.15);
+        group.add(leg1);
+        const leg2 = new THREE.Mesh(legGeom, armMat);
+        leg2.position.set(pos.x + 0.15, pos.y + 0.15, -0.15);
+        group.add(leg2);
+      }
     }
   } else if (type === 'usv') {
-    const hull = new THREE.Mesh(
-      new THREE.BoxGeometry(1.75, 0.82, 0.36),
-      material(typeColors.usv, 0.72, 0.15),
-    );
-    hull.scale.z = 0.82;
-    hull.castShadow = true;
-    group.add(hull);
+    // 更逼真的无人船
+    const hullMat = material(typeColors.usv, 0.6, 0.2);
+    const darkMat = material(0x2a2a3a, 0.4, 0.15);
+    const cabinMat = material(0xe8e4d0, 0.5, 0.1);
 
-    const bow = new THREE.Mesh(
-      new THREE.ConeGeometry(0.42, 0.72, 4),
-      material(0xff6666, 0.65, 0.1),
+    // 船体 - 使用多个几何体组合
+    const hullBase = new THREE.Mesh(
+      new THREE.BoxGeometry(2.0, 0.9, 0.3),
+      hullMat,
     );
+    hullBase.castShadow = true;
+    group.add(hullBase);
+
+    // 船体上部 - 略窄
+    const hullTop = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 0.8, 0.15),
+      hullMat,
+    );
+    hullTop.position.set(0, 0, 0.22);
+    hullTop.castShadow = true;
+    group.add(hullTop);
+
+    // 船头 - 尖形
+    const bowGeom = new THREE.ConeGeometry(0.45, 0.8, 4);
+    const bow = new THREE.Mesh(bowGeom, hullMat);
     bow.rotation.z = Math.PI / 4;
     bow.rotation.y = Math.PI / 2;
-    bow.position.x = 1.13;
-    bow.scale.y = 0.8;
+    bow.position.x = 1.3;
+    bow.scale.y = 0.85;
     bow.castShadow = true;
     group.add(bow);
 
+    // 驾驶舱
     const cabin = new THREE.Mesh(
-      new THREE.BoxGeometry(0.62, 0.48, 0.34),
-      material(0xf5f1db, 0.55, 0.08),
+      new THREE.BoxGeometry(0.7, 0.55, 0.4),
+      cabinMat,
     );
-    cabin.position.set(-0.22, 0, 0.35);
+    cabin.position.set(-0.15, 0, 0.45);
     cabin.castShadow = true;
     group.add(cabin);
-  } else if (type === 'uuv') {
-    const body = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.36, 1.6, 10, 24),
-      material(typeColors.uuv, 0.5, 0.18),
+
+    // 驾驶舱窗户
+    const windowMat = material(0x87ceeb, 0.2, 0.4);
+    const window1 = new THREE.Mesh(
+      new THREE.BoxGeometry(0.15, 0.56, 0.15),
+      windowMat,
     );
+    window1.position.set(0.2, 0, 0.45);
+    group.add(window1);
+
+    // 桅杆/天线
+    const mast = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.02, 0.02, 0.6, 8),
+      darkMat,
+    );
+    mast.position.set(-0.3, 0, 0.9);
+    group.add(mast);
+
+    // 雷达
+    const radar = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 0.02, 0.12),
+      darkMat,
+    );
+    radar.position.set(-0.3, 0, 1.15);
+    group.add(radar);
+
+    // 船尾设备
+    const sternEquip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 0.4, 0.2),
+      darkMat,
+    );
+    sternEquip.position.set(-0.8, 0, 0.25);
+    group.add(sternEquip);
+
+    // 舷号标记
+    const idMat = material(0xffffff, 0.5, 0.1);
+    const idPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 0.01, 0.1),
+      idMat,
+    );
+    idPlate.position.set(0.5, 0.46, 0.2);
+    group.add(idPlate);
+  } else if (type === 'uuv') {
+    // 更逼真的无人潜航器
+    const bodyMat = material(typeColors.uuv, 0.45, 0.2);
+    const darkMat = material(0x1a2a1a, 0.35, 0.15);
+    const finMat = material(0x7ab87a, 0.4, 0.1);
+
+    // 主体 - 流线型鱼雷形状
+    const bodyGeom = new THREE.CapsuleGeometry(0.38, 1.8, 12, 24);
+    const body = new THREE.Mesh(bodyGeom, bodyMat);
     body.rotation.z = Math.PI / 2;
     body.castShadow = true;
     group.add(body);
 
-    const finMat = material(0xb8ead0, 0.45, 0.05);
-    const finA = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.65), finMat);
-    finA.position.x = -0.85;
-    const finB = finA.clone();
-    finB.rotation.x = Math.PI / 2;
-    group.add(finA, finB);
+    // 鼻锥 - 更尖锐
+    const noseCone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.38, 0.5, 16),
+      bodyMat,
+    );
+    noseCone.rotation.z = -Math.PI / 2;
+    noseCone.position.x = 1.35;
+    noseCone.castShadow = true;
+    group.add(noseCone);
+
+    // 尾锥
+    const tailCone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.38, 0.4, 16),
+      bodyMat,
+    );
+    tailCone.rotation.z = Math.PI / 2;
+    tailCone.position.x = -1.3;
+    tailCone.castShadow = true;
+    group.add(tailCone);
+
+    // 传感器窗口
+    const sensorMat = material(0x00ff88, 0.2, 0.5);
+    for (let i = 0; i < 3; i++) {
+      const sensor = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.05, 0.02, 12),
+        sensorMat,
+      );
+      sensor.position.set(0.5 - i * 0.4, 0, 0.39);
+      sensor.rotation.x = Math.PI / 2;
+      group.add(sensor);
+    }
+
+    // 主翼 - 十字形尾翼
+    const wingMat = finMat;
+    const wing1 = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.7, 0.35),
+      wingMat,
+    );
+    wing1.position.set(-1.0, 0, 0);
+    wing1.castShadow = true;
+    group.add(wing1);
+
+    const wing2 = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.35, 0.7),
+      wingMat,
+    );
+    wing2.position.set(-1.0, 0, 0);
+    wing2.castShadow = true;
+    group.add(wing2);
+
+    // 螺旋桨
+    const propHub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.08, 0.15, 12),
+      darkMat,
+    );
+    propHub.position.set(-1.45, 0, 0);
+    propHub.rotation.z = Math.PI / 2;
+    group.add(propHub);
+
+    const bladeGeom = new THREE.BoxGeometry(0.02, 0.35, 0.06);
+    for (let i = 0; i < 4; i++) {
+      const blade = new THREE.Mesh(bladeGeom, material(0x5a5a6a, 0.4, 0.2));
+      blade.position.set(-1.5, 0, 0);
+      blade.rotation.x = (i * Math.PI) / 2;
+      blade.castShadow = true;
+      group.add(blade);
+    }
+
+    // 背鳍 - 通信天线
+    const dorsalFin = new THREE.Mesh(
+      new THREE.BoxGeometry(0.4, 0.04, 0.2),
+      finMat,
+    );
+    dorsalFin.position.set(0.2, 0, 0.45);
+    group.add(dorsalFin);
   }
 
   return group;
@@ -504,15 +689,29 @@ function setFrame(index) {
 
   const targetPos = toVector3(sceneData.target.position[frameIndex]);
   targetMesh.position.copy(targetPos);
-  faceVelocity(targetMesh, sceneData.target.velocity[frameIndex]);
+
+  const currentTime = sceneData.time[frameIndex];
+  if (currentTime <= 20) {
+    faceVelocity(targetMesh, sceneData.target.velocity[frameIndex]);
+  }
 
   for (const vehicle of vehicles) {
     const pos = toVector3(vehicle.agent.position[frameIndex]);
     vehicle.group.position.copy(pos);
-    faceVelocity(vehicle.group, vehicle.agent.velocity[frameIndex]);
+    if (currentTime <= 20) {
+      faceVelocity(vehicle.group, vehicle.agent.velocity[frameIndex]);
+    }
   }
 
   updateFormationHull(Math.min(frameIndex, hullFrameLimit));
+
+  if (currentTime > 18) {
+    hullMesh.visible = false;
+    hullWire.visible = false;
+  } else {
+    hullMesh.visible = hullSettings.visible;
+    hullWire.visible = hullSettings.visible;
+  }
 }
 
 function updateFormationHull(index) {
