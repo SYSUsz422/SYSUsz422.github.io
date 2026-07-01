@@ -24,6 +24,10 @@ const hullSettings = {
   wireOpacity: 0.78,
 };
 
+const timeSettings = {
+  freezeAfter18s: true,
+};
+
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
@@ -57,6 +61,8 @@ let hullWire = null;
 let hullFrameLimit = 0;
 let currentHullFrame = -1;
 let gui = null;
+let positionFolder = null;
+const vehiclePositions = {};
 const hullGeometryCache = new Map();
 
 initLights();
@@ -318,6 +324,19 @@ function buildFormationHull(data) {
 function initGui() {
   gui = new GUI({ title: '场景控制' });
   gui.domElement.id = 'sceneGui';
+
+  gui.add(timeSettings, 'freezeAfter18s').name('18秒后冻结状态');
+
+  positionFolder = gui.addFolder('航行器位置');
+  for (const vehicle of vehicles) {
+    const label = vehicle.agent.label;
+    vehiclePositions[label] = { x: 0, y: 0, z: 0 };
+    const sub = positionFolder.addFolder(label);
+    sub.add(vehiclePositions[label], 'x').name('X').listen().disable();
+    sub.add(vehiclePositions[label], 'y').name('Y').listen().disable();
+    sub.add(vehiclePositions[label], 'z').name('Z').listen().disable();
+  }
+  positionFolder.open();
 
   const hullFolder = gui.addFolder('凸包');
   hullFolder.add(hullSettings, 'visible').name('显示凸包').onChange(applyHullSettings);
@@ -691,24 +710,37 @@ function setFrame(index) {
   targetMesh.position.copy(targetPos);
 
   const currentTime = sceneData.time[frameIndex];
-  if (currentTime <= 20) {
+  const shouldFreeze = timeSettings.freezeAfter18s && currentTime > 18;
+
+  if (!shouldFreeze) {
     faceVelocity(targetMesh, sceneData.target.velocity[frameIndex]);
   }
 
   for (const vehicle of vehicles) {
     const pos = toVector3(vehicle.agent.position[frameIndex]);
     vehicle.group.position.copy(pos);
-    if (currentTime <= 20) {
+    if (!shouldFreeze) {
       faceVelocity(vehicle.group, vehicle.agent.velocity[frameIndex]);
+    }
+    const label = vehicle.agent.label;
+    if (vehiclePositions[label]) {
+      vehiclePositions[label].x = parseFloat(pos.x.toFixed(2));
+      vehiclePositions[label].y = parseFloat(pos.y.toFixed(2));
+      vehiclePositions[label].z = parseFloat(pos.z.toFixed(2));
     }
   }
 
-  updateFormationHull(Math.min(frameIndex, hullFrameLimit));
-
-  if (currentTime > 18) {
-    hullMesh.visible = false;
-    hullWire.visible = false;
+  if (timeSettings.freezeAfter18s) {
+    updateFormationHull(Math.min(frameIndex, hullFrameLimit));
+    if (currentTime > 18) {
+      hullMesh.visible = false;
+      hullWire.visible = false;
+    } else {
+      hullMesh.visible = hullSettings.visible;
+      hullWire.visible = hullSettings.visible;
+    }
   } else {
+    updateFormationHull(frameIndex);
     hullMesh.visible = hullSettings.visible;
     hullWire.visible = hullSettings.visible;
   }
