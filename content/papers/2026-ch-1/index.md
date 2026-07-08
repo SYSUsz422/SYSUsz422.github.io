@@ -1,5 +1,5 @@
 ---
-title: "SAC-Enhanced Distributed Self-Organizing Satellite Fencing Control for an Unknown Maneuvering Target"
+title: "(Preview)SAC-Enhanced Distributed Self-Organizing Satellite Fencing Control for an Unknown Maneuvering Target"
 aliases:
 - /f/1/
 ---
