@@ -1,5 +1,5 @@
 ---
-title: "(Preview)SAC-Enhanced Distributed Self-Organizing Satellite Fencing Control for an Unknown Maneuvering Target"
+title: "(working)"
 aliases:
 - /f/1/
 ---
@@ -7,6 +7,9 @@ aliases:
 shortlink: <https://sysusz422.github.io/f/1/>
 
 ![](res/trajectory_smc_rl.gif)
+
+
+![](res/2026a2opt1.gif)
 
 <center><b>Supplementary Animation 1.</b> Evolution of the satellite fencing formation trajectories under the proposed two-stage distributed method.</center>
 
