@@ -325,9 +325,7 @@ function initGui() {
   gui = new GUI({ title: '场景控制' });
   gui.domElement.id = 'sceneGui';
 
-  gui.add(timeSettings, 'freezeAfter18s').name('18秒后冻结状态');
-
-  positionFolder = gui.addFolder('航行器位置');
+  positionFolder = gui.addFolder('位置监控');
   for (const vehicle of vehicles) {
     const label = vehicle.agent.label;
     vehiclePositions[label] = { x: 0, y: 0, z: 0 };
@@ -336,14 +334,14 @@ function initGui() {
     sub.add(vehiclePositions[label], 'y').name('Y').listen().disable();
     sub.add(vehiclePositions[label], 'z').name('Z').listen().disable();
   }
-  positionFolder.open();
 
   const hullFolder = gui.addFolder('凸包');
   hullFolder.add(hullSettings, 'visible').name('显示凸包').onChange(applyHullSettings);
   hullFolder.addColor(hullSettings, 'color').name('颜色').onChange(applyHullSettings);
   hullFolder.add(hullSettings, 'opacity', 0, 1, 0.01).name('面透明度').onChange(applyHullSettings);
   hullFolder.add(hullSettings, 'wireOpacity', 0, 1, 0.01).name('线框透明度').onChange(applyHullSettings);
-  hullFolder.open();
+
+  gui.add(timeSettings, 'freezeAfter18s').name('目标下潜后不再更新姿态');
 
   gui.close();
 
@@ -709,8 +707,7 @@ function setFrame(index) {
   const targetPos = toVector3(sceneData.target.position[frameIndex]);
   targetMesh.position.copy(targetPos);
 
-  const currentTime = sceneData.time[frameIndex];
-  const shouldFreeze = timeSettings.freezeAfter18s && currentTime > 18;
+  const shouldFreeze = timeSettings.freezeAfter18s && targetPos.z < -0.143;
 
   if (!shouldFreeze) {
     faceVelocity(targetMesh, sceneData.target.velocity[frameIndex]);
@@ -732,7 +729,7 @@ function setFrame(index) {
 
   if (timeSettings.freezeAfter18s) {
     updateFormationHull(Math.min(frameIndex, hullFrameLimit));
-    if (currentTime > 18) {
+    if (shouldFreeze) {
       hullMesh.visible = false;
       hullWire.visible = false;
     } else {
