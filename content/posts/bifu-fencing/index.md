@@ -52,7 +52,7 @@ Formation rotates at $|\omega| = \sqrt{k_2} = 0.707$ — matches the theoretical
 
 ![](images/positions_2d.gif)
 
-Steady-state snapshots at $t = 30, 31, 32, 33$ s:
+Steady-state snapshots at $t = 30, 31, 32$ s:
 
 ![](images/snapshots_2d.png)
 
@@ -69,7 +69,7 @@ Pairwise distances oscillate periodically — the formation breathes instead of 
 
 ![](images/positions_2d_breathing.gif)
 
-Steady-state snapshots at $t = 30, 31, 32, 33$ s:
+Steady-state snapshots at $t = 30, 31, 32$ s:
 
 ![](images/snapshots_2d_breathing.png)
 
