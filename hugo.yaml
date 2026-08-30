@@ -1,0 +1,28 @@
+baseURL: 'https://sysusz422.github.io/'
+locale: 'en-us'
+title: '422 @ SYSUsz'
+theme: "hugo-book"
+
+disablePathToLower: true
+enableGitInfo: true
+disableKinds: ['taxonomy']
+
+ignoreLogs: ['warning-goldmark-raw-html']
+
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+
+params:
+  BookTheme: 'light'
+  BookToC: true
+  BookLogo: "/images/network32x32.ico"
+  BookFavicon: 'favicon.png'
+  BookSection: '*'
+  BookLastChangeLink: 'https://github.com/SYSUsz422/SYSUsz422.github.io/commit/{{ .GitInfo.Hash }}'
+  BookEditLink: 'https://github.com/SYSUsz422/SYSUsz422.github.io/edit/hugo/{{ .Path }}'
+  BookDateFormat: 'January 2, 2006'
+  BookSearch: true
+  BookPortableLinks: true
+  BookServiceWorker: true
