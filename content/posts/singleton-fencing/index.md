@@ -148,4 +148,5 @@ Since $\int \alpha(s)\,ds$ diverges as $s \to d^+$, it follows that $\|x_{ij}(t)
 
 ## Some hypothesis
 
-- If we include the target repulsion in $\phi_i$ and singleton formation is avoided, the
+- If we include the target repulsion in $\phi_i$ and singleton formation is avoided, the target can also be fenced. However, if the singleton formation is not excluded the target cannot be fenced.
+- The paper has proven that no collision occurs when $t\in [0,\infty)$, but it's still possible to collide when $t\to \infty$.
