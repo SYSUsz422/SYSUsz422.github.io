@@ -1,0 +1,6 @@
+{{- if not (.Page.Store.Get "katex") -}}
+  <link rel="stylesheet" href="{{ "katex/katex.min.css" | relURL }}" />
+  {{- .Page.Store.Set "katex" true -}}
+{{- end -}}
+{{- $opts := dict "displayMode" (eq .Type "block") -}}
+{{- (transform.ToMath .Inner $opts) -}}

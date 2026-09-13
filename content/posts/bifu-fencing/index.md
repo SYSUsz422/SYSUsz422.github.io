@@ -44,10 +44,9 @@ Different from other fencing results, the final formation will rotate about the 
 x_0 = [-0.75, 2.70, 1.39, 0.59, -2.06]
 \]
 
-Vehicles converge to a static formation that fences the target. Velocity error $\to 0$.
+Vehicles converge to a static formation that fences the target. 
+Velocity error $\to 0$.
 The space between two nearby vehicles converges to the minimum safety distance $d$.
-
-! ss
 
 ![](images/positions_1d.png)
 
@@ -99,3 +98,5 @@ With random 3D initial conditions, vehicles form a genuinely non-planar rotating
 ## Key insight
 
 The controller constrains only the average position error and average velocity, leaving $2(N-1)$ circulation degrees of freedom unconstrained. Different initial conditions excite different attractors: rigid rotation, breathing limit cycle, or 3D non-planar orbits.
+
+> Is it possible for this system to be a chaos system?
