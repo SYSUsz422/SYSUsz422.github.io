@@ -96,11 +96,11 @@ function initLights() {
 
 async function loadScene() {
   try {
-    sceneData = await fetchJson('./ship2_scene.json');
+    sceneData = normalizeScene(await fetchJson('./ship3_scene.json'));
     statusEl.textContent = `已从导出的 JSON 加载 ${sceneData.metadata.sampleCount} 个样本`;
   } catch (error) {
     statusEl.textContent = '未找到导出的 JSON，回退到 realtime-2.jsonl';
-    sceneData = await loadJsonlFallback('../out/log/realtime-2.jsonl');
+    sceneData = normalizeScene(await loadJsonlFallback('../out/log/realtime-2.jsonl'));
   }
 
   sampleDt = estimateSampleDt(sceneData.time);
@@ -174,7 +174,7 @@ async function loadJsonlFallback(url) {
 
   return {
     metadata: {
-      name: 'ship2_case2',
+      name: 'ship3',
       source: url,
       sampleCount: rows.length,
       agentCount,
@@ -792,6 +792,74 @@ function estimateSampleDt(time) {
     return 0.1;
   }
   return Math.max(0.016, time[1] - time[0]);
+}
+
+// ---------------------------------------------------------------------------
+// 场景数据解码
+// 导出端为控制体积把位置量化成整数增量 (encoding: 'position-delta')，
+// 这里累积求和还原绝对坐标，并用中心差分补出速度（用于朝向）。
+// 旧格式（直接带 position/velocity 数组）原样返回。
+// ---------------------------------------------------------------------------
+function normalizeScene(data) {
+  if (!data || !Array.isArray(data.agents)) {
+    return data;
+  }
+
+  const hasDelta = Array.isArray(data.target?.positionDelta)
+    || data.agents.some((agent) => Array.isArray(agent.positionDelta));
+  if (!hasDelta) {
+    return data;
+  }
+
+  const scale = Number(data.metadata?.positionScale ?? 0.01);
+  const dt = estimateSampleDt(data.time);
+
+  for (const agent of data.agents) {
+    if (!Array.isArray(agent.positionDelta)) {
+      continue;
+    }
+    agent.position = decodePositionDelta(agent.positionDelta, scale);
+    agent.velocity = velocityFromPositions(agent.position, dt);
+    delete agent.positionDelta;
+  }
+
+  if (Array.isArray(data.target?.positionDelta)) {
+    data.target.position = decodePositionDelta(data.target.positionDelta, scale);
+    data.target.velocity = velocityFromPositions(data.target.position, dt);
+    delete data.target.positionDelta;
+  }
+
+  return data;
+}
+
+function decodePositionDelta(flat, scale) {
+  const positions = [];
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  for (let i = 0; i + 2 < flat.length; i += 3) {
+    x += flat[i];
+    y += flat[i + 1];
+    z += flat[i + 2];
+    positions.push([x * scale, y * scale, z * scale]);
+  }
+  return positions;
+}
+
+function velocityFromPositions(positions, dt) {
+  const step = dt > 0 ? dt : 0.1;
+  const last = positions.length - 1;
+  return positions.map((point, index) => {
+    const lo = Math.max(index - 1, 0);
+    const hi = Math.min(index + 1, last);
+    const span = (hi - lo) * step;
+    if (span <= 0) {
+      return [0, 0, 0];
+    }
+    const a = positions[lo];
+    const b = positions[hi];
+    return [(b[0] - a[0]) / span, (b[1] - a[1]) / span, (b[2] - a[2]) / span];
+  });
 }
 
 function findFrameAtOrBefore(time, limitSeconds) {
