@@ -3,54 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title> 三维场景</title>
-  <link rel="stylesheet" href="./styles.css">
+  <meta name="theme-color" content="#07131e">
+  <title>跨域协同合围 · 三维仿真</title>
+  <link rel="stylesheet" href="./styles.css?v=20261113-sky4">
 </head>
 <body>
   <main id="app">
-    <canvas id="scene"></canvas>
+    <canvas id="scene" aria-label="空中、水面与水下智能体协同合围的三维仿真场景"></canvas>
 
-    <section class="hud hud-top">
-      <div>
-        <div class="title"> 围捕场景</div>
-        <div id="status" class="status">加载仿真数据中...</div>
+    <header class="hud hud-top">
+      <div class="heading">
+        <p class="eyebrow">CROSS-DOMAIN ENCIRCLEMENT</p>
+        <h1 class="title">跨域协同合围</h1>
+        <p id="status" class="status" role="status">加载仿真数据中…</p>
       </div>
-      <div class="legend" aria-label="vehicle legend">
-        <span><i class="swatch usv"></i>USV</span>
-        <span><i class="swatch uav"></i>UAV</span>
-        <span><i class="swatch uuv"></i>UUV</span>
-        <span><i class="swatch target"></i>目标</span>
-        <span><i class="swatch hull"></i>18秒前凸包</span>
+      <div class="legend" aria-label="场景图例">
+        <span class="legend-item"><i class="swatch usv" aria-hidden="true"></i><b>USV</b><span class="legend-detail">水面 <span class="legend-count">6</span></span></span>
+        <span class="legend-item"><i class="swatch uav" aria-hidden="true"></i><b>UAV</b><span class="legend-detail">空中 <span class="legend-count">5</span></span></span>
+        <span class="legend-item"><i class="swatch uuv" aria-hidden="true"></i><b>UUV</b><span class="legend-detail">水下 <span class="legend-count">4</span></span></span>
+        <span class="legend-item legend-secondary"><i class="swatch target" aria-hidden="true"></i>目标潜航器</span>
+        <span class="legend-item legend-secondary"><i class="swatch hull" aria-hidden="true"></i>当前凸包</span>
       </div>
+    </header>
+
+    <aside class="scene-tools" aria-label="场景显示控制">
+      <div class="view-row">
+        <div class="view-switch" role="group" aria-label="观察视角">
+          <button type="button" data-view="space" aria-pressed="true">空间</button>
+          <button type="button" data-view="top" aria-pressed="false">俯视</button>
+          <button type="button" data-view="side" aria-pressed="false">侧视</button>
+        </div>
+        <button id="resetView" class="quiet-button" type="button" title="复位当前视角">复位</button>
+      </div>
+      <div class="display-options">
+        <label class="trail-control" for="trailMode">
+          <span>轨迹</span>
+          <select id="trailMode">
+            <option value="recent" selected>近期</option>
+            <option value="full">完整</option>
+            <option value="off">关闭</option>
+          </select>
+        </label>
+        <label class="check-control" for="showHull"><input id="showHull" type="checkbox" checked><span>凸包</span></label>
+        <label class="check-control" for="showLabels"><input id="showLabels" type="checkbox"><span>标签</span></label>
+      </div>
+      <button id="diveReplay" class="dive-replay" type="button" title="从入水前开始，以4倍速回放下潜过程">↓ 回放下潜</button>
+    </aside>
+
+    <section class="scene-state" aria-label="当前围捕状态">
+      <p class="hull-state"><span class="state-mark" aria-hidden="true"></span><span id="hullStatus">计算凸包中</span></p>
+      <p class="height-state"><span>目标深度</span><span id="heightLabel">—</span></p>
+      <p id="diveState" class="dive-state">目标状态</p>
     </section>
 
-    <section class="hud hud-bottom">
-      <button id="playButton" type="button" title="播放或暂停">播放</button>
+    <footer class="hud hud-bottom" aria-label="仿真播放控制">
+      <button id="playButton" class="play-button" type="button" title="播放或暂停">播放</button>
       <label class="time-slider" for="timeSlider">
         <span id="timeLabel">t = 0.0 s</span>
-        <input id="timeSlider" type="range" min="0" max="0" step="1" value="0">
+        <input id="timeSlider" type="range" min="0" max="0" step="1" value="0" aria-label="仿真时间">
       </label>
       <label class="speed-control" for="speedSelect">
-        <span>速度</span>
+        <span>倍速</span>
         <select id="speedSelect">
-          <option value="0.5">0.5x</option>
-          <option value="1" selected>1x</option>
-          <option value="2">2x</option>
-          <option value="4">4x</option>
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
         </select>
       </label>
-    </section>
+      <button id="fullscreenButton" class="quiet-button fullscreen-button" type="button" title="切换全屏" aria-label="切换全屏">全屏</button>
+    </footer>
   </main>
 
   <script type="importmap">
     {
       "imports": {
         "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/",
-        "lil-gui": "https://unpkg.com/lil-gui@0.19.2/dist/lil-gui.esm.js"
+        "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
       }
     }
   </script>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=20261113-sky6"></script>
 </body>
 </html>

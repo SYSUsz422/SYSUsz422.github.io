@@ -1,7 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
-import GUI from 'lil-gui';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { buildHull } from './hull.js';
+import { createVehicleMesh } from './actors.js?v=20261113-sky4';
+import { createOceanVolume } from './environment.js?v=20261113-sky4';
+import { createSkyBackdrop } from './sky.js?v=20261113-sky4';
 
 const canvas = document.querySelector('#scene');
 const statusEl = document.querySelector('#status');
@@ -9,797 +14,507 @@ const playButton = document.querySelector('#playButton');
 const timeSlider = document.querySelector('#timeSlider');
 const timeLabel = document.querySelector('#timeLabel');
 const speedSelect = document.querySelector('#speedSelect');
-
-const typeColors = {
-  usv: 0xe34242,
-  uav: 0x2f7ee6,
-  uuv: 0x2eaa57,
-  target: 0xf2f0dd,
-};
-
-const hullSettings = {
-  visible: true,
-  color: '#ffc857',
-  opacity: 0.16,
-  wireOpacity: 0.78,
-};
-
-const timeSettings = {
-  freezeAfter18s: true,
-};
-
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const hullStatus = document.querySelector('#hullStatus');
+const heightLabel = document.querySelector('#heightLabel');
+const typeColors = { usv: 0xffc53d, uav: 0x42a8ff, uuv: 0x00dfa2, target: 0xff293d };
+const settings = { hull: true, labels: false, trails: 'recent' };
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.setClearColor(0x071018, 1);
-
+renderer.setClearColor(0x07121e, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x071018, 70, 210);
-
-const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(39, 1, 0.1, 1000);
 camera.up.set(0, 0, 1);
-camera.position.set(52, -94, 52);
-
-const controls = new OrbitControls(camera, renderer.domElement);
+const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.target.set(24, -28, -2);
-controls.maxDistance = 240;
-controls.minDistance = 16;
-
+controls.dampingFactor = 0.09;
+controls.minDistance = 12;
+controls.maxDistance = 260;
 const clock = new THREE.Clock();
-let sceneData = null;
+const trails = [];
+const layerLabels = new THREE.Group();
+const labelSprites = [];
+let ocean;
+let sky;
+let oceanPhase = '';
+let depthGuide;
+let sceneData;
 let frameIndex = 0;
-let isPlaying = true;
+let isPlaying = false;
+let diveReplayActive = false;
 let playbackAccumulator = 0;
 let sampleDt = 0.1;
 let vehicles = [];
-let targetMesh = null;
-let hullMesh = null;
-let hullWire = null;
-let hullFrameLimit = 0;
+let targetMesh;
+let hullMesh;
+let hullWire;
+let surfaceSection;
+let view = 'space';
 let currentHullFrame = -1;
-let gui = null;
-let positionFolder = null;
-const vehiclePositions = {};
-const hullGeometryCache = new Map();
+let lastHull = null;
+let autoFrame = true;
+controls.addEventListener('start', () => { autoFrame = false; });
 
-initLights();
-loadScene();
-window.addEventListener('resize', resize);
+scene.add(new THREE.HemisphereLight(0xe6f3ff, 0x173e56, 0.85));
+const keyLight = new THREE.DirectionalLight(0xffffff, 3);
+keyLight.position.set(-15, -30, 60);
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x5ba9ff, 1.4);
+rimLight.position.set(30, 30, -10);
+scene.add(rimLight);
+scene.add(layerLabels);
+
 playButton.addEventListener('click', () => {
+  if (!sceneData) return;
   isPlaying = !isPlaying;
+  playbackAccumulator = 0;
   playButton.textContent = isPlaying ? '暂停' : '播放';
 });
 timeSlider.addEventListener('input', () => {
+  if (!sceneData) return;
   isPlaying = false;
+  diveReplayActive = false;
+  playbackAccumulator = 0;
   playButton.textContent = '播放';
   setFrame(Number(timeSlider.value));
+  fitView();
+});
+document.querySelector('#trailMode').addEventListener('change', event => {
+  settings.trails = event.target.value;
+  if (sceneData) updateTrails();
+});
+document.querySelector('#showHull').addEventListener('change', event => {
+  settings.hull = event.target.checked;
+  if (sceneData) updateFormationHull(frameIndex);
+});
+document.querySelector('#showLabels').addEventListener('change', event => {
+  settings.labels = event.target.checked;
+  updateLabels();
+});
+document.querySelectorAll('[data-view]').forEach(button => {
+  button.addEventListener('click', () => {
+    view = button.dataset.view;
+    document.querySelectorAll('[data-view]').forEach(item => {
+      item.setAttribute('aria-pressed', String(item === button));
+    });
+    if (sceneData) fitView();
+  });
+});
+document.querySelector('#resetView').addEventListener('click', () => {
+  if (sceneData) fitView();
+});
+document.querySelector('#fullscreenButton').addEventListener('click', async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.querySelector('#app').requestFullscreen();
+  } catch {
+    statusEl.textContent = '当前嵌入环境不支持全屏，请通过独立演示页查看。';
+  }
 });
 
-function initLights() {
-  scene.add(new THREE.HemisphereLight(0xbce9ff, 0x102c39, 1.35));
-
-  const sun = new THREE.DirectionalLight(0xffffff, 2.4);
-  sun.position.set(-40, -55, 90);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 220;
-  sun.shadow.camera.left = -90;
-  sun.shadow.camera.right = 90;
-  sun.shadow.camera.top = 90;
-  sun.shadow.camera.bottom = -90;
-  scene.add(sun);
-}
+document.querySelector('#diveReplay').addEventListener('click', () => {
+  if (!sceneData?.presentation) return;
+  view = 'space';
+  document.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === view)));
+  setFrame(sceneData.presentation.startIndex);
+  fitView();
+  speedSelect.value = '4';
+  playbackAccumulator = 0;
+  isPlaying = true;
+  diveReplayActive = true;
+  playButton.textContent = '暂停';
+});
+window.addEventListener('resize', resize);
+loadScene();
 
 async function loadScene() {
   try {
-    sceneData = normalizeScene(await fetchJson('./ship3_scene.json'));
-    statusEl.textContent = `已从导出的 JSON 加载 ${sceneData.metadata.sampleCount} 个样本`;
+    const response = await fetch('./ship3_scene.json');
+    if (!response.ok) throw new Error('无法加载仿真数据');
+    sceneData = normalizeScene(await response.json());
+    prepareDivePresentation();
+    if (!sceneData.time?.length || !sceneData.target?.position?.length) {
+      throw new Error('仿真数据不完整');
+    }
+    sampleDt = estimateSampleDt(sceneData.time);
+    timeSlider.max = String(sceneData.time.length - 1);
+    timeSlider.disabled = false;
+    playButton.disabled = false;
+    buildWorld();
+    buildActors();
+    buildFormationHull();
+    buildDepthGuide();
+    // 首屏展示已下潜的真实代表帧，时刻明确标注；时间轴保留完整 0–350 s 回放。
+    setFrame(findFrameAtOrBefore(sceneData.time, 250));
+    resize();
+    fitView();
+    statusEl.textContent = '15 个智能体 · 350 s 真实轨迹回放';
+    animate();
   } catch (error) {
-    statusEl.textContent = '未找到导出的 JSON，回退到 realtime-2.jsonl';
-    sceneData = normalizeScene(await loadJsonlFallback('../out/log/realtime-2.jsonl'));
+    console.error(error);
+    statusEl.textContent = '场景加载失败，请刷新页面重试。';
+    hullStatus.textContent = '数据不可用';
+    playButton.disabled = true;
+    timeSlider.disabled = true;
   }
-
-  sampleDt = estimateSampleDt(sceneData.time);
-  timeSlider.max = String(sceneData.time.length - 1);
-  timeSlider.value = '0';
-  playButton.textContent = '暂停';
-
-  buildWorld(sceneData);
-  buildActors(sceneData);
-  buildFormationHull(sceneData);
-  initGui();
-  setFrame(0);
-  resize();
-  animate();
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, { cache: 'no-cache' });
-  if (!response.ok) {
-    throw new Error(`Cannot load ${url}`);
+function buildWorld() {
+  const bounds = new THREE.Box3(new THREE.Vector3(...sceneData.bounds.min), new THREE.Vector3(...sceneData.bounds.max));
+  sky = createSkyBackdrop(scene, bounds, sceneData.bounds.seaLevel ?? 0);
+  ocean = createOceanVolume(scene, bounds, sceneData.bounds.seaLevel ?? 0, sceneData.bounds.seaFloor ?? -22);
+  for (const [text, color] of [['AIR / 空中', '#99c9ff'], ['SEA LEVEL / 海平面', '#d5faff'], ['UNDERWATER / 水下', '#68ffdb']]) {
+    layerLabels.add(createLabel(text, color, 12));
   }
-  return response.json();
 }
 
-async function loadJsonlFallback(url) {
-  const response = await fetch(url, { cache: 'no-cache' });
-  if (!response.ok) {
-    throw new Error(`Cannot load fallback ${url}`);
+function prepareDivePresentation() {
+  const level = sceneData.bounds.seaLevel ?? 0;
+  const firstSubmerged = sceneData.target.position.findIndex(point => point[2] < level - 0.05);
+  if (firstSubmerged < 0) return;
+  const startTime = Math.max(0, sceneData.time[firstSubmerged] - 8);
+  const startIndex = findFrameAtOrBefore(sceneData.time, startTime);
+  const bounds = new THREE.Box3();
+  // 整个下潜阶段共用同一真实包络，直接跳转与连续播放得到同样的取景。
+  for (let i = startIndex; i < sceneData.time.length; i++) {
+    bounds.expandByPoint(toVector3(sceneData.target.position[i]));
+    for (const agent of sceneData.agents) bounds.expandByPoint(toVector3(agent.position[i]));
   }
-
-  const text = await response.text();
-  const rows = text.trim().split(/\r?\n/).map((line) => JSON.parse(line));
-  const first = rows[0];
-  const agentCount = first.state.agents.length;
-
-  const agents = Array.from({ length: agentCount }, (_, index) => {
-    const type = first.state.agents[index].type.toLowerCase();
-    return {
-      id: index + 1,
-      type,
-      label: `${type.toUpperCase()} ${index + 1}`,
-      position: [],
-      velocity: [],
-      speed: [],
-      control: [],
-      controlNorm: [],
-    };
-  });
-
-  const target = { position: [], velocity: [] };
-  const time = [];
-
-  for (const row of rows) {
-    time.push(row.t);
-    target.position.push(row.state.target.p);
-    target.velocity.push(row.state.target.v);
-    for (let i = 0; i < agentCount; i += 1) {
-      const agentState = row.state.agents[i];
-      const dydtStart = 6 + i * 18;
-      const control = row.dydt ? row.dydt.slice(dydtStart + 3, dydtStart + 6) : [0, 0, 0];
-      agents[i].position.push(agentState.p);
-      agents[i].velocity.push(agentState.v);
-      agents[i].speed.push(lengthOf(agentState.v));
-      agents[i].control.push(control);
-      agents[i].controlNorm.push(lengthOf(control));
-    }
-  }
-
-  const allPositions = [target.position, ...agents.map((agent) => agent.position)].flat();
-  const bounds = computeBounds(allPositions);
-
-  return {
-    metadata: {
-      name: 'ship3',
-      source: url,
-      sampleCount: rows.length,
-      agentCount,
-      timeUnit: 's',
-      lengthUnit: 'm',
-    },
-    time,
-    target,
-    agents,
-    bounds,
-  };
+  bounds.expandByPoint(new THREE.Vector3(bounds.min.x, bounds.min.y, level));
+  sceneData.presentation = { startIndex, bounds };
 }
 
-function buildWorld(data) {
-  const bounds = data.bounds;
-  const min = new THREE.Vector3(...bounds.min);
-  const max = new THREE.Vector3(...bounds.max);
-  const center = min.clone().add(max).multiplyScalar(0.5);
-  const size = max.clone().sub(min);
-
-  controls.target.copy(center);
-  controls.target.z = -2;
-  camera.position.set(center.x + 58, center.y - 88, center.z + 54);
-
-  const seaLevel = bounds.seaLevel ?? 0;
-  const seaFloor = bounds.seaFloor ?? Math.min(-20, min.z - 4);
-  const waterWidth = Math.max(size.x + 24, 90);
-  const waterDepth = Math.max(size.y + 24, 90);
-  const waterHeight = seaLevel - seaFloor;
-
-  const sea = createSeaSurface(waterWidth, waterDepth);
-  sea.position.set(center.x, center.y, seaLevel);
-  scene.add(sea);
-
-  const water = new THREE.Mesh(
-    new THREE.BoxGeometry(waterWidth, waterDepth, waterHeight),
-    new THREE.MeshPhysicalMaterial({
-      color: 0x0b5d7e,
-      transparent: true,
-      opacity: 0.16,
-      roughness: 0.55,
-      metalness: 0,
-      transmission: 0.18,
-      depthWrite: false,
-    }),
-  );
-  water.position.set(center.x, center.y, seaFloor + waterHeight / 2);
-  scene.add(water);
-
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(waterWidth, waterDepth),
-    new THREE.MeshStandardMaterial({
-      color: 0x17435a,
-      roughness: 0.95,
-      metalness: 0,
-      transparent: true,
-      opacity: 0.45,
-    }),
-  );
-  floor.position.set(center.x, center.y, seaFloor);
-  floor.receiveShadow = true;
-  scene.add(floor);
-
-  const grid = new THREE.GridHelper(Math.max(waterWidth, waterDepth), 18, 0x8fd4e8, 0x2d6374);
-  grid.rotation.x = Math.PI / 2;
-  grid.position.set(center.x, center.y, seaLevel + 0.015);
-  grid.material.transparent = true;
-  grid.material.opacity = 0.18;
-  scene.add(grid);
+function updateOceanRegion() {
+  const diving = sceneData.presentation && frameIndex >= sceneData.presentation.startIndex;
+  const phase = diving ? 'dive' : 'overview';
+  if (phase === oceanPhase) return;
+  const bounds = diving ? sceneData.presentation.bounds
+    : new THREE.Box3(new THREE.Vector3(...sceneData.bounds.min), new THREE.Vector3(...sceneData.bounds.max));
+  ocean.setBounds(bounds);
+  sky.setBounds(bounds);
+  oceanPhase = phase;
 }
 
-function createSeaSurface(width, depth) {
-  const geometry = new THREE.PlaneGeometry(width, depth, 70, 70);
-  const positions = geometry.attributes.position;
-  for (let i = 0; i < positions.count; i += 1) {
-    const x = positions.getX(i);
-    const y = positions.getY(i);
-    const z = 0.22 * Math.sin(x * 0.16) + 0.14 * Math.cos(y * 0.21);
-    positions.setZ(i, z);
-  }
-  geometry.computeVertexNormals();
-
-  const material = new THREE.MeshPhysicalMaterial({
-    color: 0x4caac7,
-    roughness: 0.16,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.58,
-    clearcoat: 0.7,
-    clearcoatRoughness: 0.22,
-    side: THREE.DoubleSide,
-  });
-
-  const sea = new THREE.Mesh(geometry, material);
-  sea.receiveShadow = true;
-  return sea;
-}
-
-function buildActors(data) {
-  targetMesh = createTarget();
+function buildActors() {
+  targetMesh = new THREE.Group();
+  const targetVehicle = createVehicleMesh('uuv', typeColors.target);
+  targetVehicle.scale.setScalar(1.35);
+  targetMesh.add(targetVehicle);
+  targetMesh.name = 'target-submersible';
+  const targetLabel = createLabel('目标潜航器', '#ffb7bf', 13);
+  targetLabel.position.set(0, 0, -1.1);
+  targetMesh.userData.label = targetLabel;
+  targetMesh.add(targetLabel);
   scene.add(targetMesh);
-  drawLine(data.target.position, typeColors.target, 0.86, 2);
-
-  vehicles = data.agents.map((agent) => {
-    const group = new THREE.Group();
-    group.name = agent.label;
-    group.add(createVehicleMesh(agent.type));
-    group.add(createLabelSprite(agent.label));
+  addTrail(sceneData.target.position, typeColors.target);
+  vehicles = sceneData.agents.map(agent => {
+    const group = createVehicleMesh(agent.type, typeColors[agent.type]);
+    const label = createLabel(agent.label, '#f2f8ff', 11);
+    label.position.z = 1.7;
+    label.visible = settings.labels;
+    group.add(label);
     scene.add(group);
-
-    drawLine(agent.position, typeColors[agent.type] ?? 0xffffff, 0.62, 1);
-
-    return { agent, group };
+    addTrail(agent.position, typeColors[agent.type]);
+    return { agent, group, label };
   });
 }
 
-function buildFormationHull(data) {
-  hullFrameLimit = findFrameAtOrBefore(data.time, 18);
 
-  const hullMaterial = new THREE.MeshStandardMaterial({
-    color: hullSettings.color,
-    transparent: true,
-    opacity: hullSettings.opacity,
-    roughness: 0.62,
-    metalness: 0.02,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  hullMesh = new THREE.Mesh(new THREE.BufferGeometry(), hullMaterial);
-  hullMesh.renderOrder = 2;
-  hullMesh.visible = hullSettings.visible;
-  scene.add(hullMesh);
 
-  hullWire = new THREE.LineSegments(
-    new THREE.BufferGeometry(),
-    new THREE.LineBasicMaterial({
-      color: hullSettings.color,
-      transparent: true,
-      opacity: hullSettings.wireOpacity,
-    }),
-  );
-  hullWire.renderOrder = 3;
-  hullWire.visible = hullSettings.visible;
-  scene.add(hullWire);
-}
-
-function initGui() {
-  gui = new GUI({ title: '场景控制' });
-  gui.domElement.id = 'sceneGui';
-
-  positionFolder = gui.addFolder('位置监控');
-  for (const vehicle of vehicles) {
-    const label = vehicle.agent.label;
-    vehiclePositions[label] = { x: 0, y: 0, z: 0 };
-    const sub = positionFolder.addFolder(label);
-    sub.add(vehiclePositions[label], 'x').name('X').listen().disable();
-    sub.add(vehiclePositions[label], 'y').name('Y').listen().disable();
-    sub.add(vehiclePositions[label], 'z').name('Z').listen().disable();
-  }
-
-  const hullFolder = gui.addFolder('凸包');
-  hullFolder.add(hullSettings, 'visible').name('显示凸包').onChange(applyHullSettings);
-  hullFolder.addColor(hullSettings, 'color').name('颜色').onChange(applyHullSettings);
-  hullFolder.add(hullSettings, 'opacity', 0, 1, 0.01).name('面透明度').onChange(applyHullSettings);
-  hullFolder.add(hullSettings, 'wireOpacity', 0, 1, 0.01).name('线框透明度').onChange(applyHullSettings);
-
-  gui.add(timeSettings, 'freezeAfter18s').name('目标下潜后不再更新姿态');
-
-  gui.close();
-
-  applyHullSettings();
-}
-
-function applyHullSettings() {
-  if (!hullMesh || !hullWire) {
-    return;
-  }
-
-  hullMesh.visible = hullSettings.visible;
-  hullWire.visible = hullSettings.visible;
-  hullMesh.material.color.set(hullSettings.color);
-  hullMesh.material.opacity = hullSettings.opacity;
-  hullMesh.material.needsUpdate = true;
-  hullWire.material.color.set(hullSettings.color);
-  hullWire.material.opacity = hullSettings.wireOpacity;
-  hullWire.material.needsUpdate = true;
-}
-
-function createVehicleMesh(type) {
-  const group = new THREE.Group();
-  if (type === 'uav') {
-    // 更逼真的四旋翼无人机
-    const bodyMat = material(typeColors.uav, 0.4, 0.3);
-    const darkMat = material(0x1a1a2e, 0.3, 0.1);
-    const armMat = material(0x8a8a9a, 0.35, 0.25);
-
-    // 机身主体 - 流线型
-    const bodyGeom = new THREE.BoxGeometry(1.2, 0.4, 0.18);
-    const body = new THREE.Mesh(bodyGeom, bodyMat);
-    body.castShadow = true;
-    group.add(body);
-
-    // 机身上盖 - 圆润
-    const topCover = new THREE.Mesh(
-      new THREE.BoxGeometry(0.8, 0.3, 0.08),
-      material(0x3a7bd5, 0.35, 0.3),
-    );
-    topCover.position.set(0, 0, 0.13);
-    group.add(topCover);
-
-    // 摄像头/传感器
-    const camera = new THREE.Mesh(
-      new THREE.SphereGeometry(0.08, 16, 16),
-      darkMat,
-    );
-    camera.position.set(0.5, 0, -0.1);
-    camera.castShadow = true;
-    group.add(camera);
-
-    // 四个机臂
-    const armPositions = [
-      { x: 0.7, y: 0.7, angle: Math.PI / 4 },
-      { x: 0.7, y: -0.7, angle: -Math.PI / 4 },
-      { x: -0.7, y: 0.7, angle: 3 * Math.PI / 4 },
-      { x: -0.7, y: -0.7, angle: -3 * Math.PI / 4 },
-    ];
-
-    for (const pos of armPositions) {
-      // 机臂
-      const arm = new THREE.Mesh(
-        new THREE.BoxGeometry(0.9, 0.06, 0.05),
-        armMat,
-      );
-      arm.position.set(pos.x / 2, pos.y / 2, 0.05);
-      arm.rotation.z = pos.angle;
-      arm.castShadow = true;
-      group.add(arm);
-
-      // 电机
-      const motor = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.06, 0.06, 0.1, 12),
-        darkMat,
-      );
-      motor.position.set(pos.x, pos.y, 0.08);
-      group.add(motor);
-
-      // 螺旋桨 - 更逼真
-      const bladeGeom = new THREE.BoxGeometry(0.5, 0.06, 0.01);
-      for (let i = 0; i < 2; i++) {
-        const blade = new THREE.Mesh(bladeGeom, material(0x4a4a5a, 0.4, 0.15));
-        blade.position.set(pos.x, pos.y, 0.14);
-        blade.rotation.z = pos.angle + i * Math.PI;
-        blade.castShadow = true;
-        group.add(blade);
-      }
-
-      // 起落架
-      if (pos.x > 0 && pos.y > 0) {
-        const legGeom = new THREE.CylinderGeometry(0.015, 0.015, 0.2, 8);
-        const leg1 = new THREE.Mesh(legGeom, armMat);
-        leg1.position.set(pos.x - 0.15, pos.y - 0.15, -0.15);
-        group.add(leg1);
-        const leg2 = new THREE.Mesh(legGeom, armMat);
-        leg2.position.set(pos.x + 0.15, pos.y + 0.15, -0.15);
-        group.add(leg2);
-      }
-    }
-  } else if (type === 'usv') {
-    // 更逼真的无人船
-    const hullMat = material(typeColors.usv, 0.6, 0.2);
-    const darkMat = material(0x2a2a3a, 0.4, 0.15);
-    const cabinMat = material(0xe8e4d0, 0.5, 0.1);
-
-    // 船体 - 使用多个几何体组合
-    const hullBase = new THREE.Mesh(
-      new THREE.BoxGeometry(2.0, 0.9, 0.3),
-      hullMat,
-    );
-    hullBase.castShadow = true;
-    group.add(hullBase);
-
-    // 船体上部 - 略窄
-    const hullTop = new THREE.Mesh(
-      new THREE.BoxGeometry(1.8, 0.8, 0.15),
-      hullMat,
-    );
-    hullTop.position.set(0, 0, 0.22);
-    hullTop.castShadow = true;
-    group.add(hullTop);
-
-    // 船头 - 尖形
-    const bowGeom = new THREE.ConeGeometry(0.45, 0.8, 4);
-    const bow = new THREE.Mesh(bowGeom, hullMat);
-    bow.rotation.z = Math.PI / 4;
-    bow.rotation.y = Math.PI / 2;
-    bow.position.x = 1.3;
-    bow.scale.y = 0.85;
-    bow.castShadow = true;
-    group.add(bow);
-
-    // 驾驶舱
-    const cabin = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7, 0.55, 0.4),
-      cabinMat,
-    );
-    cabin.position.set(-0.15, 0, 0.45);
-    cabin.castShadow = true;
-    group.add(cabin);
-
-    // 驾驶舱窗户
-    const windowMat = material(0x87ceeb, 0.2, 0.4);
-    const window1 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.15, 0.56, 0.15),
-      windowMat,
-    );
-    window1.position.set(0.2, 0, 0.45);
-    group.add(window1);
-
-    // 桅杆/天线
-    const mast = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.02, 0.02, 0.6, 8),
-      darkMat,
-    );
-    mast.position.set(-0.3, 0, 0.9);
-    group.add(mast);
-
-    // 雷达
-    const radar = new THREE.Mesh(
-      new THREE.BoxGeometry(0.2, 0.02, 0.12),
-      darkMat,
-    );
-    radar.position.set(-0.3, 0, 1.15);
-    group.add(radar);
-
-    // 船尾设备
-    const sternEquip = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3, 0.4, 0.2),
-      darkMat,
-    );
-    sternEquip.position.set(-0.8, 0, 0.25);
-    group.add(sternEquip);
-
-    // 舷号标记
-    const idMat = material(0xffffff, 0.5, 0.1);
-    const idPlate = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3, 0.01, 0.1),
-      idMat,
-    );
-    idPlate.position.set(0.5, 0.46, 0.2);
-    group.add(idPlate);
-  } else if (type === 'uuv') {
-    // 更逼真的无人潜航器
-    const bodyMat = material(typeColors.uuv, 0.45, 0.2);
-    const darkMat = material(0x1a2a1a, 0.35, 0.15);
-    const finMat = material(0x7ab87a, 0.4, 0.1);
-
-    // 主体 - 流线型鱼雷形状
-    const bodyGeom = new THREE.CapsuleGeometry(0.38, 1.8, 12, 24);
-    const body = new THREE.Mesh(bodyGeom, bodyMat);
-    body.rotation.z = Math.PI / 2;
-    body.castShadow = true;
-    group.add(body);
-
-    // 鼻锥 - 更尖锐
-    const noseCone = new THREE.Mesh(
-      new THREE.ConeGeometry(0.38, 0.5, 16),
-      bodyMat,
-    );
-    noseCone.rotation.z = -Math.PI / 2;
-    noseCone.position.x = 1.35;
-    noseCone.castShadow = true;
-    group.add(noseCone);
-
-    // 尾锥
-    const tailCone = new THREE.Mesh(
-      new THREE.ConeGeometry(0.38, 0.4, 16),
-      bodyMat,
-    );
-    tailCone.rotation.z = Math.PI / 2;
-    tailCone.position.x = -1.3;
-    tailCone.castShadow = true;
-    group.add(tailCone);
-
-    // 传感器窗口
-    const sensorMat = material(0x00ff88, 0.2, 0.5);
-    for (let i = 0; i < 3; i++) {
-      const sensor = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.05, 0.05, 0.02, 12),
-        sensorMat,
-      );
-      sensor.position.set(0.5 - i * 0.4, 0, 0.39);
-      sensor.rotation.x = Math.PI / 2;
-      group.add(sensor);
-    }
-
-    // 主翼 - 十字形尾翼
-    const wingMat = finMat;
-    const wing1 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.08, 0.7, 0.35),
-      wingMat,
-    );
-    wing1.position.set(-1.0, 0, 0);
-    wing1.castShadow = true;
-    group.add(wing1);
-
-    const wing2 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.08, 0.35, 0.7),
-      wingMat,
-    );
-    wing2.position.set(-1.0, 0, 0);
-    wing2.castShadow = true;
-    group.add(wing2);
-
-    // 螺旋桨
-    const propHub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.08, 0.15, 12),
-      darkMat,
-    );
-    propHub.position.set(-1.45, 0, 0);
-    propHub.rotation.z = Math.PI / 2;
-    group.add(propHub);
-
-    const bladeGeom = new THREE.BoxGeometry(0.02, 0.35, 0.06);
-    for (let i = 0; i < 4; i++) {
-      const blade = new THREE.Mesh(bladeGeom, material(0x5a5a6a, 0.4, 0.2));
-      blade.position.set(-1.5, 0, 0);
-      blade.rotation.x = (i * Math.PI) / 2;
-      blade.castShadow = true;
-      group.add(blade);
-    }
-
-    // 背鳍 - 通信天线
-    const dorsalFin = new THREE.Mesh(
-      new THREE.BoxGeometry(0.4, 0.04, 0.2),
-      finMat,
-    );
-    dorsalFin.position.set(0.2, 0, 0.45);
-    group.add(dorsalFin);
-  }
-
-  return group;
-}
-
-function createTarget() {
-  const group = new THREE.Group();
-  const core = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.68, 0),
-    material(typeColors.target, 0.7, 0.1),
-  );
-  core.castShadow = true;
-  group.add(core);
-
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.88, 0.025, 8, 64),
-    material(0x20242a, 0.45, 0.1),
-  );
-  ring.rotation.x = Math.PI / 2;
-  group.add(ring);
-  return group;
-}
-
-function createLabelSprite(text) {
-  const canvas2d = document.createElement('canvas');
-  canvas2d.width = 256;
-  canvas2d.height = 64;
-  const ctx = canvas2d.getContext('2d');
-  ctx.fillStyle = 'rgba(5, 15, 23, 0.7)';
-  ctx.fillRect(0, 0, canvas2d.width, canvas2d.height);
-  ctx.font = '600 30px Segoe UI, Arial';
-  ctx.fillStyle = '#eef8fb';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, 128, 34);
-
-  const texture = new THREE.CanvasTexture(canvas2d);
+function createLabel(text, color, fontSize = 12) {
+  const image = document.createElement('canvas');
+  image.width = 512;
+  image.height = 80;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: texture,
-    transparent: true,
-    depthWrite: false,
+    map: new THREE.CanvasTexture(image), transparent: true, depthWrite: false,
+    sizeAttenuation: false,
   }));
-  sprite.position.set(0, 0, 1.55);
-  sprite.scale.set(3.8, 0.95, 1);
+  sprite.userData = { canvas: image, color, fontSize };
+  paintLabel(sprite, text);
+  labelSprites.push(sprite);
+  updateLabelScale(sprite);
   return sprite;
 }
 
-function material(color, roughness, metalness) {
-  return new THREE.MeshStandardMaterial({
-    color,
-    roughness,
-    metalness,
-  });
+function paintLabel(sprite, text) {
+  const { canvas: image, color } = sprite.userData;
+  const ctx = image.getContext('2d');
+  ctx.clearRect(0, 0, image.width, image.height);
+  ctx.font = '600 27px "Segoe UI", "Microsoft YaHei", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.strokeStyle = '#03101f';
+  ctx.lineWidth = 5;
+  ctx.lineJoin = 'round';
+  ctx.strokeText(text, 256, 40);
+  ctx.fillStyle = color;
+  ctx.fillText(text, 256, 40);
+  sprite.material.map.needsUpdate = true;
 }
 
-function drawLine(points, color, opacity, width) {
+function updateLabelScale(sprite) {
+  const factor = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.max(1, canvas.clientHeight);
+  const width = 512 * sprite.userData.fontSize / 27 * factor;
+  sprite.scale.set(width, width * 80 / 512, 1);
+}
+
+function addTrail(points, color) {
   const geometry = new THREE.BufferGeometry().setFromPoints(points.map(toVector3));
-  const line = new THREE.Line(
-    geometry,
-    new THREE.LineBasicMaterial({
-      color,
-      transparent: true,
-      opacity,
-      linewidth: width,
-    }),
-  );
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(points.length * 3), 3));
+  const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, opacity: 0.65, depthWrite: false,
+  }));
+  line.renderOrder = 1;
+  trails.push({ line, color: new THREE.Color(color) });
   scene.add(line);
 }
 
-function animate() {
-  requestAnimationFrame(animate);
-  const dt = clock.getDelta();
-  controls.update();
+function updateTrails() {
+  for (const [index, { line, color }] of trails.entries()) {
+    const seconds = index === 0 ? 60 : 12;
+    const start = settings.trails === 'recent' ? Math.max(0, frameIndex - Math.round(seconds / sampleDt)) : 0;
+    line.visible = settings.trails !== 'off';
+    line.geometry.setDrawRange(start, frameIndex - start + 1);
+    const colors = line.geometry.attributes.color;
+    for (let i = start; i <= frameIndex; i++) {
+      const age = (i - start) / Math.max(1, frameIndex - start);
+      const brightness = 0.12 + age * 0.88;
+      colors.setXYZ(i, color.r * brightness, color.g * brightness, color.b * brightness);
+    }
+    colors.needsUpdate = true;
+  }
+}
 
-  if (isPlaying && sceneData) {
-    playbackAccumulator += dt * Number(speedSelect.value);
-    if (playbackAccumulator >= sampleDt) {
-      const steps = Math.floor(playbackAccumulator / sampleDt);
-      playbackAccumulator -= steps * sampleDt;
-      setFrame((frameIndex + steps) % sceneData.time.length);
+function buildFormationHull() {
+  hullMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({
+    color: 0xe9c97b, transparent: true, opacity: 0.07,
+    side: THREE.DoubleSide, depthWrite: false,
+  }));
+  hullMesh.renderOrder = 2;
+  scene.add(hullMesh);
+  hullWire = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({
+    color: 0xf1d18b, linewidth: 1.35, transparent: true, opacity: 0.82, depthWrite: false,
+  }));
+  hullWire.renderOrder = 3;
+  scene.add(hullWire);
+  surfaceSection = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({
+    color: 0x9ccad6, transparent: true, opacity: 0.42, depthWrite: false,
+  }));
+  surfaceSection.renderOrder = 4;
+  scene.add(surfaceSection);
+}
+
+function updateFormationHull(index) {
+  if (index !== currentHullFrame) {
+    const positions = sceneData.agents.map(agent => agent.position[index]);
+    const result = buildHull(positions, sceneData.target.position[index]);
+    hullMesh.geometry.dispose();
+    hullWire.geometry.dispose();
+    hullMesh.geometry = result.geometry ?? new THREE.BufferGeometry();
+    const lineGeometry = new LineSegmentsGeometry();
+    if (result.edges) lineGeometry.setPositions(result.edges.attributes.position.array);
+    hullWire.geometry = lineGeometry;
+    updateSurfaceSection(result.geometry);
+    result.edges?.dispose();
+    lastHull = result;
+    currentHullFrame = index;
+  }
+  const valid = lastHull?.kind === 'volume';
+  hullMesh.visible = settings.hull && valid;
+  hullWire.visible = settings.hull && valid;
+  surfaceSection.visible = settings.hull && valid && surfaceSection.geometry.attributes.position.count >= 3;
+  hullStatus.textContent = valid
+    ? (lastHull.containsTarget ? '目标在凸包内' : '目标在凸包外')
+    : '当前点集未形成三维凸包';
+  hullStatus.dataset.state = valid ? (lastHull.containsTarget ? 'inside' : 'outside') : 'degenerate';
+}
+
+function updateSurfaceSection(geometry) {
+  const points = [];
+  const level = sceneData.bounds.seaLevel ?? 0;
+  const add = point => {
+    if (!points.some(other => other.distanceToSquared(point) < 1e-10)) points.push(point);
+  };
+  if (geometry) {
+    // 几何截面使用完整三角面，不能使用经过夹角筛选的显示棱线。
+    const attr = geometry.attributes.position;
+    for (let i = 0; i < attr.count; i += 3) {
+      for (let edge = 0; edge < 3; edge++) {
+        const a = new THREE.Vector3().fromBufferAttribute(attr, i + edge);
+        const b = new THREE.Vector3().fromBufferAttribute(attr, i + (edge + 1) % 3);
+        if ((a.z - level) * (b.z - level) > 0) continue;
+        if (Math.abs(a.z - b.z) < 1e-8) {
+          if (Math.abs(a.z - level) < 1e-8) { add(a); add(b); }
+        } else add(a.lerp(b, (level - a.z) / (b.z - a.z)));
+      }
     }
   }
-
-  renderer.render(scene, camera);
+  const center = points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).divideScalar(points.length || 1);
+  points.sort((a, b) => Math.atan2(a.y - center.y, a.x - center.x) - Math.atan2(b.y - center.y, b.x - center.x));
+  surfaceSection.geometry.dispose();
+  surfaceSection.geometry = new THREE.BufferGeometry().setFromPoints(points);
 }
 
 function setFrame(index) {
   frameIndex = THREE.MathUtils.clamp(index, 0, sceneData.time.length - 1);
   timeSlider.value = String(frameIndex);
-  timeLabel.textContent = `t = ${sceneData.time[frameIndex].toFixed(1)} s`;
-
+  timeLabel.textContent = 't = ' + sceneData.time[frameIndex].toFixed(1) + ' s';
   const targetPos = toVector3(sceneData.target.position[frameIndex]);
   targetMesh.position.copy(targetPos);
-
-  const shouldFreeze = timeSettings.freezeAfter18s && targetPos.z < -0.143;
-
-  if (!shouldFreeze) {
-    faceVelocity(targetMesh, sceneData.target.velocity[frameIndex]);
-  }
-
+  faceVelocity(targetMesh, sceneData.target.velocity[frameIndex]);
   for (const vehicle of vehicles) {
-    const pos = toVector3(vehicle.agent.position[frameIndex]);
-    vehicle.group.position.copy(pos);
-    if (!shouldFreeze) {
-      faceVelocity(vehicle.group, vehicle.agent.velocity[frameIndex]);
-    }
-    const label = vehicle.agent.label;
-    if (vehiclePositions[label]) {
-      vehiclePositions[label].x = parseFloat(pos.x.toFixed(2));
-      vehiclePositions[label].y = parseFloat(pos.y.toFixed(2));
-      vehiclePositions[label].z = parseFloat(pos.z.toFixed(2));
-    }
+    vehicle.group.position.copy(toVector3(vehicle.agent.position[frameIndex]));
+    faceVelocity(vehicle.group, vehicle.agent.velocity[frameIndex]);
   }
-
-  if (timeSettings.freezeAfter18s) {
-    updateFormationHull(Math.min(frameIndex, hullFrameLimit));
-    if (shouldFreeze) {
-      hullMesh.visible = false;
-      hullWire.visible = false;
-    } else {
-      hullMesh.visible = hullSettings.visible;
-      hullWire.visible = hullSettings.visible;
-    }
-  } else {
-    updateFormationHull(frameIndex);
-    hullMesh.visible = hullSettings.visible;
-    hullWire.visible = hullSettings.visible;
-  }
+  updateFormationHull(frameIndex);
+  updateTrails();
+  updateHeight();
+  updateLayerLabels();
+  updateDepthGuide();
+  updateOceanRegion();
 }
 
-function updateFormationHull(index) {
-  if (!hullMesh || !hullWire) {
-    return;
-  }
-  if (index === currentHullFrame) {
-    return;
-  }
-
-  const geometry = getHullGeometry(index);
-  hullWire.geometry.dispose();
-  hullMesh.geometry = geometry;
-  hullWire.geometry = new THREE.EdgesGeometry(geometry, 18);
-  currentHullFrame = index;
+function updateHeight() {
+  const z = targetMesh.position.z - (sceneData.bounds.seaLevel ?? 0);
+  const vz = sceneData.target.velocity[frameIndex][2];
+  heightLabel.textContent = Math.abs(z) < 0.05 ? '0.0 m' : Math.abs(z).toFixed(1) + ' m';
+  document.querySelector('#diveState').textContent = z > 0.05 ? '目标位于水上'
+    : z >= -0.05 ? '目标位于海面' : vz < -0.005 ? '↓ 正在下潜' : '目标位于水下';
 }
 
-function getHullGeometry(index) {
-  if (hullGeometryCache.has(index)) {
-    return hullGeometryCache.get(index);
-  }
+function buildDepthGuide() {
+  const group = new THREE.Group();
+  const projection = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.065, 8, 64),
+    new THREE.MeshBasicMaterial({color: 0xff6978, toneMapped: false, depthWrite: false}));
+  projection.renderOrder = 7;
+  const line = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({
+    color: 0xff8290, linewidth: 2.5, transparent: true, opacity: 0.95, depthWrite: false,
+    dashed: true, dashSize: 0.55, gapSize: 0.28, toneMapped: false,
+  }));
+  line.renderOrder = 7;
+  const label = createLabel('深度 0.0 m', '#ffd3da', 14);
+  group.add(projection, line, label);
+  scene.add(group);
+  depthGuide = { group, projection, line, label };
+}
 
-  const points = sceneData.agents.map((agent) => toVector3(agent.position[index]));
-  const geometry = new ConvexGeometry(points);
-  geometry.computeVertexNormals();
-  hullGeometryCache.set(index, geometry);
-  return geometry;
+function updateDepthGuide() {
+  const position = targetMesh.position;
+  const level = sceneData.bounds.seaLevel ?? 0;
+  const depth = Math.max(0, level - position.z);
+  depthGuide.projection.position.set(position.x, position.y, level + 0.04);
+  depthGuide.label.position.set(position.x + 2.4, position.y, (position.z + level) / 2);
+  paintLabel(depthGuide.label, '↓ ' + depth.toFixed(1) + ' m');
+  const segments = [position.x, position.y, level, position.x, position.y, position.z];
+  for (let z = level - 5; z > position.z; z -= 5) {
+    segments.push(position.x - 0.4, position.y, z, position.x + 0.4, position.y, z);
+  }
+  depthGuide.line.geometry.dispose();
+  depthGuide.line.geometry = new LineSegmentsGeometry().setPositions(segments);
+  depthGuide.line.computeLineDistances();
+  depthGuide.line.visible = depth > 0.05;
+  depthGuide.label.visible = depth > 0.05;
+  depthGuide.projection.visible = true;
+}
+
+function updateLabels() {
+  vehicles.forEach(vehicle => { vehicle.label.visible = settings.labels; });
 }
 
 function faceVelocity(object, velocity) {
   const v = toVector3(velocity);
-  if (v.lengthSq() < 1e-6) {
-    return;
+  if (v.lengthSq() > 1e-6) object.rotation.z = Math.atan2(v.y, v.x);
+}
+
+function fitView() {
+  autoFrame = true;
+  const { box, center, distance } = framing();
+  controls.maxDistance = Math.max(260, distance * 1.5);
+  const direction = view === 'top' ? new THREE.Vector3(0, -0.001, 1)
+    : view === 'side' ? new THREE.Vector3(0.35, -1, 0.07)
+    : new THREE.Vector3(1.05, -1.8, 0.55);
+  controls.target.copy(center);
+  camera.position.copy(center).addScaledVector(direction.normalize(), distance);
+  camera.lookAt(center);
+  controls.update();
+  updateLayerLabels(box);
+}
+
+function framing() {
+  const points = [targetMesh.position, ...vehicles.map(vehicle => vehicle.group.position)];
+  const locked = sceneData.presentation && frameIndex >= sceneData.presentation.startIndex;
+  const box = locked ? sceneData.presentation.bounds.clone() : new THREE.Box3().setFromPoints(points);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const radius = Math.max(10, size.length() / 2);
+  const halfFov = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.min(1, camera.aspect));
+  const distance = radius / Math.sin(halfFov) * 1.25;
+  return { box, center, distance };
+}
+
+function updateLayerLabels(box = new THREE.Box3().setFromPoints(vehicles.map(vehicle => vehicle.group.position))) {
+  const center = box.getCenter(new THREE.Vector3());
+  layerLabels.position.set(0, 0, 0);
+  layerLabels.children[0].position.set(box.min.x - 9, center.y, Math.max(6, box.max.z * 0.8));
+  layerLabels.children[1].position.set(box.min.x - 9, center.y, sceneData.bounds.seaLevel ?? 0);
+  layerLabels.children[2].position.set(box.min.x - 9, center.y, Math.min(-6, box.min.z * 0.8));
+  layerLabels.visible = view !== 'top';
+  if (targetMesh.userData?.label) targetMesh.userData.label.visible = view !== 'top';
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.25);
+  if (isPlaying && sceneData) {
+    playbackAccumulator += dt * Number(speedSelect.value);
+    if (playbackAccumulator >= sampleDt) {
+      const steps = Math.floor(playbackAccumulator / sampleDt);
+      playbackAccumulator -= steps * sampleDt;
+      const reachedEnd = diveReplayActive && frameIndex + steps >= sceneData.time.length - 1;
+      const next = reachedEnd ? sceneData.time.length - 1 : (frameIndex + steps) % sceneData.time.length;
+      setFrame(next);
+      if (reachedEnd) {
+        isPlaying = false;
+        diveReplayActive = false;
+        playButton.textContent = '播放';
+      }
+      if (next < steps) fitView();
+    }
   }
-  const heading = Math.atan2(v.y, v.x);
-  object.rotation.set(0, 0, heading);
+  if (isPlaying && autoFrame) {
+    // 缓慢调整取景范围；手动操作相机后停止跟随，复位可恢复。
+    const { center, distance } = framing();
+    const offset = camera.position.clone().sub(controls.target);
+    const blend = 1 - Math.exp(-dt * 2.5);
+    offset.setLength(THREE.MathUtils.lerp(offset.length(), distance, blend));
+    controls.target.lerp(center, blend);
+    camera.position.copy(controls.target).add(offset);
+  }
+  controls.update();
+  ocean?.update(sceneData.time[frameIndex]);
+  sky?.update(camera, sceneData.time[frameIndex]);
+  renderer.render(scene, camera);
 }
 
 function resize() {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  camera.aspect = width / height;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  camera.aspect = width / Math.max(1, height);
   camera.updateProjectionMatrix();
   renderer.setSize(width, height, false);
+  if (hullWire) hullWire.material.resolution.set(width, height);
+  if (depthGuide) depthGuide.line.material.resolution.set(width, height);
+  labelSprites.forEach(updateLabelScale);
+  if (sceneData && targetMesh) fitView();
 }
 
 function estimateSampleDt(time) {
-  if (!time || time.length < 2) {
-    return 0.1;
-  }
+  if (!time || time.length < 2) return 0.1;
   return Math.max(0.016, time[1] - time[0]);
 }
 
-// ---------------------------------------------------------------------------
-// 场景数据解码
-// 导出端为控制体积把位置量化成整数增量 (encoding: 'position-delta')，
-// 这里累积求和还原绝对坐标，并用中心差分补出速度（用于朝向）。
-// 旧格式（直接带 position/velocity 数组）原样返回。
-// ---------------------------------------------------------------------------
 function normalizeScene(data) {
   if (!data || !Array.isArray(data.agents)) {
     return data;
@@ -874,28 +589,6 @@ function findFrameAtOrBefore(time, limitSeconds) {
   return best;
 }
 
-function computeBounds(points) {
-  const min = [Infinity, Infinity, Infinity];
-  const max = [-Infinity, -Infinity, -Infinity];
-  for (const point of points) {
-    for (let i = 0; i < 3; i += 1) {
-      min[i] = Math.min(min[i], point[i]);
-      max[i] = Math.max(max[i], point[i]);
-    }
-  }
-  const padding = [8, 8, 5];
-  return {
-    min: min.map((value, i) => value - padding[i]),
-    max: max.map((value, i) => value + padding[i]),
-    seaLevel: 0,
-    seaFloor: Math.min(-20, min[2] - 4),
-  };
-}
-
 function toVector3(point) {
   return new THREE.Vector3(point[0], point[1], point[2]);
-}
-
-function lengthOf(vector) {
-  return Math.hypot(vector[0], vector[1], vector[2]);
 }
